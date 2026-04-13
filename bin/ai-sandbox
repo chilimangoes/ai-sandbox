@@ -1,0 +1,269 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+IMAGE_TAG="ai-sandbox:latest"
+DEFAULT_CONTAINER_PORT=3773
+DEFAULT_HOST_PORT=3773
+
+usage() {
+  echo "Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [shell|codex|gemini|copilot|t3|doctor|stop|rm|reset-config|reset-state]"
+}
+
+assert_docker() {
+  command -v docker >/dev/null 2>&1
+  docker version >/dev/null
+}
+
+workspace_meta() {
+  local workspace="$1"
+  local full_path
+  full_path="$(cd "$workspace" && pwd)"
+  local leaf slug hash suffix
+  leaf="$(basename "$full_path")"
+  slug="$(printf '%s' "$leaf" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+  [[ -n "$slug" ]] || slug="workspace"
+  hash="$(printf '%s' "${full_path,,}" | sha256sum | awk '{print $1}')"
+  suffix="${hash:0:12}"
+  printf '%s\n' "$full_path" "$slug" "$suffix" "ai-sandbox-$slug-$suffix" \
+    "ai-sandbox-$slug-$suffix-config" "ai-sandbox-$slug-$suffix-auth" \
+    "ai-sandbox-$slug-$suffix-data" "ai-sandbox-$slug-$suffix-cache"
+}
+
+free_port() {
+  local start="$1"
+  local port
+  for ((port=start; port<start+100; port++)); do
+    if command -v ss >/dev/null 2>&1; then
+      if ! ss -ltn 2>/dev/null | grep -Eq "[:.]${port}[[:space:]]"; then
+        echo "$port"
+        return 0
+      fi
+    elif command -v netstat >/dev/null 2>&1; then
+      if ! netstat -ltn 2>/dev/null | grep -q ":$port "; then
+        echo "$port"
+        return 0
+      fi
+    else
+      echo "Neither ss nor netstat is available for port probing." >&2
+      return 1
+    fi
+  done
+  echo "No free port found starting at $start." >&2
+  return 1
+}
+
+container_exists() {
+  local name="$1"
+  [[ "$(docker ps -a --filter "name=^/${name}$" --format '{{.Names}}')" == "$name" ]]
+}
+
+container_running() {
+  local name="$1"
+  [[ "$(docker ps --filter "name=^/${name}$" --format '{{.Names}}')" == "$name" ]]
+}
+
+image_id() {
+  docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true
+}
+
+container_image_id() {
+  docker inspect --format '{{.Image}}' "$1" 2>/dev/null || true
+}
+
+ensure_volume() {
+  local name="$1"
+  docker volume inspect "$name" >/dev/null 2>&1 || docker volume create "$name" >/dev/null
+}
+
+build_image() {
+  docker build --pull -t "$IMAGE_TAG" "$REPO_ROOT"
+}
+
+remove_container() {
+  local name="$1"
+  if container_exists "$name"; then
+    docker rm -f "$name" >/dev/null
+  fi
+}
+
+existing_host_port() {
+  local name="$1"
+  local output
+  output="$(docker port "$name" "${DEFAULT_CONTAINER_PORT}/tcp" 2>/dev/null || true)"
+  [[ "$output" =~ :([0-9]+)$ ]] && echo "${BASH_REMATCH[1]}"
+}
+
+ensure_container() {
+  local host_port="$1"
+
+  local current_image_id
+  current_image_id="$(image_id "$IMAGE_TAG")"
+  [[ -n "$current_image_id" ]] || { echo "Image $IMAGE_TAG not found." >&2; exit 1; }
+
+  if container_exists "$CONTAINER_NAME"; then
+    local running_image_id
+    local recreate_needed="false"
+    running_image_id="$(container_image_id "$CONTAINER_NAME")"
+    local current_port
+    current_port="$(existing_host_port "$CONTAINER_NAME")"
+    if [[ "$FORCE_RECREATE" == "true" || "$running_image_id" != "$current_image_id" ]]; then
+      recreate_needed="true"
+    fi
+    if [[ -n "$current_port" && "$current_port" != "$host_port" ]]; then
+      recreate_needed="true"
+    fi
+    if [[ "$recreate_needed" == "true" ]]; then
+      remove_container "$CONTAINER_NAME"
+    fi
+  fi
+
+  ensure_volume "$CONFIG_VOLUME"
+  ensure_volume "$AUTH_VOLUME"
+  ensure_volume "$DATA_VOLUME"
+  ensure_volume "$CACHE_VOLUME"
+
+  if ! container_exists "$CONTAINER_NAME"; then
+    docker run -d \
+      --name "$CONTAINER_NAME" \
+      --label "ai-sandbox.workspace=${WORKSPACE_PATH}" \
+      --label "ai-sandbox.hash=${WORKSPACE_HASH}" \
+      -p "${host_port}:${DEFAULT_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_HOST_T3_PORT=${host_port}" \
+      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${host_port}" \
+      -e "LOCAL_UID=$(id -u)" \
+      -e "LOCAL_GID=$(id -g)" \
+      -v "${WORKSPACE_PATH}:/workspace" \
+      -v "${CONFIG_VOLUME}:/state/config" \
+      -v "${AUTH_VOLUME}:/state/auth" \
+      -v "${DATA_VOLUME}:/state/data" \
+      -v "${CACHE_VOLUME}:/state/cache" \
+      "$IMAGE_TAG" \
+      daemon >/dev/null
+  elif ! container_running "$CONTAINER_NAME"; then
+    docker start "$CONTAINER_NAME" >/dev/null
+  fi
+}
+
+exec_in_container() {
+  local interactive="$1"
+  shift
+  if [[ "$interactive" == "true" ]]; then
+    docker exec -it \
+      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_HOST_PORT}" \
+      -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
+      "$CONTAINER_NAME" \
+      /opt/ai-sandbox/entrypoint.sh "$@"
+  else
+    docker exec \
+      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_HOST_PORT}" \
+      -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
+      "$CONTAINER_NAME" \
+      /opt/ai-sandbox/entrypoint.sh "$@"
+  fi
+}
+
+UPDATE="false"
+REBUILD="false"
+FORCE_RECREATE="false"
+EXPLICIT_PORT=""
+POSITIONALS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help)
+      usage
+      exit 0
+      ;;
+    --update)
+      UPDATE="true"
+      shift
+      ;;
+    --rebuild)
+      REBUILD="true"
+      FORCE_RECREATE="true"
+      shift
+      ;;
+    --t3-port)
+      EXPLICIT_PORT="$2"
+      shift 2
+      ;;
+    *)
+      POSITIONALS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+COMMAND="${POSITIONALS[0]:-shell}"
+COMMAND_ARGS=("${POSITIONALS[@]:1}")
+
+assert_docker
+mapfile -t META < <(workspace_meta "$PWD")
+WORKSPACE_PATH="${META[0]}"
+WORKSPACE_SLUG="${META[1]}"
+WORKSPACE_HASH="${META[2]}"
+CONTAINER_NAME="${META[3]}"
+CONFIG_VOLUME="${META[4]}"
+AUTH_VOLUME="${META[5]}"
+DATA_VOLUME="${META[6]}"
+CACHE_VOLUME="${META[7]}"
+
+if [[ -z "$(image_id "$IMAGE_TAG")" || "$UPDATE" == "true" || "$REBUILD" == "true" ]]; then
+  build_image
+fi
+
+case "$COMMAND" in
+  stop)
+    container_exists "$CONTAINER_NAME" && docker stop "$CONTAINER_NAME" >/dev/null || true
+    exit 0
+    ;;
+  rm)
+    remove_container "$CONTAINER_NAME"
+    exit 0
+    ;;
+  reset-state)
+    remove_container "$CONTAINER_NAME"
+    docker volume rm "$CONFIG_VOLUME" "$AUTH_VOLUME" "$DATA_VOLUME" "$CACHE_VOLUME" >/dev/null 2>&1 || true
+    exit 0
+    ;;
+esac
+
+if [[ "$REBUILD" == "true" ]]; then
+  remove_container "$CONTAINER_NAME"
+fi
+
+if container_exists "$CONTAINER_NAME"; then
+  EXISTING_PORT="$(existing_host_port "$CONTAINER_NAME")"
+else
+  EXISTING_PORT=""
+fi
+
+if [[ -n "$EXPLICIT_PORT" ]]; then
+  SELECTED_HOST_PORT="$EXPLICIT_PORT"
+elif [[ -n "$EXISTING_PORT" ]]; then
+  SELECTED_HOST_PORT="$EXISTING_PORT"
+else
+  SELECTED_HOST_PORT="$(free_port "$DEFAULT_HOST_PORT")"
+fi
+
+ensure_container "$SELECTED_HOST_PORT"
+
+case "$COMMAND" in
+  reset-config)
+    exec_in_container false reset-config
+    ;;
+  doctor)
+    exec_in_container false doctor
+    ;;
+  shell)
+    exec_in_container true shell
+    ;;
+  *)
+    exec_in_container true "$COMMAND" "${COMMAND_ARGS[@]}"
+    ;;
+esac
