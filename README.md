@@ -32,9 +32,7 @@ Unsupported in v1:
 ## Quickstart
 
 1. Install Docker.
-2. Put one of the launchers on your `PATH`:
-   - Windows: [bin/ai-sandbox.ps1](bin/ai-sandbox.ps1) and optionally [bin/ai-sandbox.cmd](bin/ai-sandbox.cmd)
-   - Linux: [bin/ai-sandbox](bin/ai-sandbox)
+2. Add the `/bin` directory your `PATH`.
 3. Change into any workspace directory.
 4. Run `ai-sandbox`.
 5. Use `codex`, `gemini`, `copilot`, or `t3` from inside the sandbox shell.

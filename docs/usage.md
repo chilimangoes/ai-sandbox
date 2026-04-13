@@ -32,9 +32,8 @@ Requirements:
 
 Recommended install:
 
-1. Add [bin/ai-sandbox.ps1](bin/ai-sandbox.ps1) to your `PATH`.
-2. Optionally add [bin/ai-sandbox.cmd](bin/ai-sandbox.cmd) for `cmd.exe`.
-3. Open PowerShell in a project directory and run `ai-sandbox`.
+1. Add the `/bin` directory to your `PATH`.
+2. Open PowerShell in a project directory and run `ai-sandbox`.
 
 Notes:
 
