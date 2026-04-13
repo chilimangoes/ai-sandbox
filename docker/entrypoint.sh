@@ -89,7 +89,7 @@ run_doctor() {
 
 run_t3() {
   echo "Starting T3 on $HOST_T3_URL"
-  run_as_sandbox "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; t3 serve --host 0.0.0.0 --port '$CONTAINER_T3_PORT' 2>&1 | rewrite_t3_output"
+  run_as_sandbox "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; t3 serve --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
 }
 
 dispatch() {
