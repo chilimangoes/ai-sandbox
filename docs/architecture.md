@@ -3,7 +3,7 @@
 ## Locked v1 decisions
 
 - `ai-sandbox` opens an interactive shell by default.
-- Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, and `t3`, plus the selected host T3 URL.
+- Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, and `t3`, plus the selected host T3 URL to use after `ai-sandbox t3` starts the server.
 - `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
 - Tool auth is created and stored only inside Docker volumes.
 - Image refreshes only happen when the image is missing or the user passes `--update` or `--rebuild`.
@@ -85,6 +85,7 @@ Maintenance commands:
 - Default host port: `3773`
 - If `--t3-port` is omitted, the launcher probes from `3773` upward until it finds a free host port.
 - The chosen URL is surfaced in shell startup output and when T3 launches.
+- Shell mode reserves and prints the URL, but only `ai-sandbox t3` starts the T3 server.
 - T3 is configured for Codex-backed usage in v1. Future provider support can add new preset files without changing the launcher contract.
 
 ## Image design

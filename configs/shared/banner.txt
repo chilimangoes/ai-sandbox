@@ -1,1 +1,2 @@
 Available commands: codex, gemini, copilot, t3
+Run ai-sandbox t3 to start T3.

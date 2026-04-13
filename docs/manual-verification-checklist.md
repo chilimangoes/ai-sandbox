@@ -8,7 +8,7 @@
 ## Container basics
 
 - `ai-sandbox` opens a shell in `/workspace`.
-- The shell banner shows the available commands and T3 URL.
+- The shell banner shows the available commands and the T3 URL reserved for `ai-sandbox t3`.
 - Files created in `/workspace` appear on the host.
 
 ## Tool versions

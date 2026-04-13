@@ -1,0 +1,18 @@
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = "Stop"
+
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$banner = Get-Content (Join-Path $repoRoot "configs\shared\banner.txt") -Raw
+$entrypoint = Get-Content (Join-Path $repoRoot "docker\entrypoint.sh") -Raw
+
+if ($banner -notmatch 'Run ai-sandbox t3 to start T3\.') {
+    throw "Expected banner.txt to tell users to run ai-sandbox t3 before opening the T3 URL."
+}
+
+if ($entrypoint -notmatch 'Run ai-sandbox t3 to start T3\.') {
+    throw "Expected docker/entrypoint.sh banner output to include a T3 start hint."
+}
+
+Write-Host "banner-text.ps1 passed"

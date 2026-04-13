@@ -49,10 +49,28 @@ run_argv_as_sandbox() {
   run_as_sandbox "exec ${quoted}"
 }
 
+rewrite_t3_output() {
+  while IFS= read -r line; do
+    case "$line" in
+      "Connection string: "*)
+        echo "Connection string: $AI_SANDBOX_T3_URL"
+        ;;
+      "Pairing URL: "*"#token="*)
+        token="${line##*#token=}"
+        echo "Pairing URL: $AI_SANDBOX_T3_URL/pair#token=$token"
+        ;;
+      *)
+        echo "$line"
+        ;;
+    esac
+  done
+}
+
 print_banner() {
   printf '\n'
   cat /opt/ai-sandbox/defaults/configs/shared/banner.txt
-  printf '\nT3 URL: %s\n\n' "$HOST_T3_URL"
+  printf '\nT3 URL (after `ai-sandbox t3`): %s\n' "$HOST_T3_URL"
+  printf 'Run ai-sandbox t3 to start T3.\n\n'
 }
 
 reset_config() {
@@ -66,12 +84,12 @@ run_doctor() {
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
   echo "node: $(node --version 2>/dev/null || echo unavailable)"
   echo "npm: $(npm --version 2>/dev/null || echo unavailable)"
-  echo "t3: $(npx --yes t3 --help >/dev/null 2>&1 && echo available-via-npx || echo unavailable)"
+  echo "t3: $(t3 --help >/dev/null 2>&1 && echo available || echo unavailable)"
 }
 
 run_t3() {
   echo "Starting T3 on $HOST_T3_URL"
-  run_as_sandbox "export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; exec npx --yes t3 --host 0.0.0.0 --port '$CONTAINER_T3_PORT'"
+  run_as_sandbox "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; t3 serve --host 0.0.0.0 --port '$CONTAINER_T3_PORT' 2>&1 | rewrite_t3_output"
 }
 
 dispatch() {

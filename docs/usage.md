@@ -66,3 +66,4 @@ Notes:
 - Default host URL: `http://127.0.0.1:3773`
 - If that port is occupied, the launcher auto-selects the next free port unless `--t3-port` is supplied.
 - The shell banner prints the chosen URL for the current workspace sandbox.
+- The URL is not live in plain shell mode; run `ai-sandbox t3` before opening it in a browser.

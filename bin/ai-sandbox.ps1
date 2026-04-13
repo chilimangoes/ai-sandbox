@@ -210,18 +210,41 @@ function Remove-ContainerIfExists {
 
 function Get-ExistingHostPort {
     param([string]$Name)
-    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
-    $PSNativeCommandUseErrorActionPreference = $false
+
     try {
-        $port = docker port $Name "$DefaultContainerPort/tcp" 2>$null
-    } finally {
-        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
-    }
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($port)) {
+        $dockerCommand = Get-Command docker -ErrorAction Stop
+        $dockerPath = $dockerCommand.Source
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        if ($dockerPath -match '\.(cmd|bat)$') {
+            $psi.FileName = $env:ComSpec
+            $psi.Arguments = "/d /c """"$dockerPath"" port $Name $DefaultContainerPort/tcp"""
+        } else {
+            $psi.FileName = $dockerPath
+            $psi.Arguments = "port $Name $DefaultContainerPort/tcp"
+        }
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+
+        $process = [System.Diagnostics.Process]::Start($psi)
+        try {
+            $stdout = $process.StandardOutput.ReadToEnd()
+            $stderr = $process.StandardError.ReadToEnd()
+            $process.WaitForExit()
+            $exitCode = $process.ExitCode
+        } finally {
+            $process.Dispose()
+        }
+    } catch {
         return $null
     }
 
-    foreach ($line in ($port -split "`r?`n")) {
+    if ($exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($stdout)) {
+        return $null
+    }
+
+    foreach ($line in ($stdout -split "`r?`n")) {
         if ($line -match ':(\d+)$') {
             return [int]$Matches[1]
         }
