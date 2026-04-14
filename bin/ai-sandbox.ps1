@@ -14,7 +14,7 @@ $DefaultHostPort = 3773
 
 function Write-Usage {
     @"
-Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [shell|codex|gemini|copilot|t3|doctor|stop|rm|reset-config|reset-state]
+Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [shell|codex|gemini|copilot|opencode|t3|doctor|stop|rm|reset-config|reset-state]
 "@
 }
 

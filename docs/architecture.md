@@ -3,7 +3,7 @@
 ## Locked v1 decisions
 
 - `ai-sandbox` opens an interactive shell by default.
-- Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, and `t3`, plus the selected host T3 URL to use after `ai-sandbox t3` starts the server.
+- Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, `opencode`, and `t3`, plus the selected host T3 URL to use after `ai-sandbox t3` starts the server.
 - `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
 - Tool auth is created and stored only inside Docker volumes.
 - Image refreshes only happen when the image is missing or the user passes `--update` or `--rebuild`.
@@ -17,7 +17,7 @@ The host launcher is workspace-centric:
 2. Derive a stable workspace slug and short hash from the absolute path.
 3. Build or refresh the shared image when required.
 4. Start one detached workspace-scoped container.
-5. Execute either `shell`, `codex`, `gemini`, `copilot`, or `t3` inside that container.
+5. Execute either `shell`, `codex`, `gemini`, `copilot`, `opencode`, or `t3` inside that container.
 
 Each workspace gets:
 
@@ -66,6 +66,7 @@ Primary commands:
 - `ai-sandbox codex`
 - `ai-sandbox gemini`
 - `ai-sandbox copilot`
+- `ai-sandbox opencode`
 - `ai-sandbox t3`
 
 Maintenance commands:
@@ -100,6 +101,7 @@ The image installs:
 - `@openai/codex`
 - `@google/gemini-cli`
 - `@github/copilot`
+- `opencode-ai`
 - a lightweight `t3` launcher path via `npx t3`
 
 ## Compatibility notes

@@ -21,6 +21,13 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 - Copilot preset files live under `/state/config/copilot`.
 - Copilot auth and session state persist in Docker volumes for the current workspace.
 
+## OpenCode
+
+- Authenticate inside the sandbox by running `opencode` and following the OpenCode `/connect` flow.
+- OpenCode global config defaults live under `/state/config/opencode/opencode.json`.
+- OpenCode auth persists at `/state/auth/opencode/auth.json`.
+- The container maps OpenCode's expected XDG paths so `~/.config/opencode/opencode.json` and `~/.local/share/opencode/auth.json` survive container recreation.
+
 ## T3
 
 - T3 is configured for Codex-backed usage in v1.

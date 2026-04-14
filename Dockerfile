@@ -26,7 +26,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @openai/codex @google/gemini-cli @github/copilot t3
+RUN npm install -g @openai/codex @google/gemini-cli @github/copilot opencode-ai t3
 
 RUN useradd --create-home --shell /bin/bash sandbox
 

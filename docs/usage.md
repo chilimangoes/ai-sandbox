@@ -9,6 +9,7 @@ From a workspace directory:
 - `ai-sandbox codex`: run Codex CLI in the sandbox
 - `ai-sandbox gemini`: run Gemini CLI in the sandbox
 - `ai-sandbox copilot`: run Copilot CLI in the sandbox
+- `ai-sandbox opencode`: run OpenCode in the sandbox
 - `ai-sandbox t3`: start T3 in the sandbox for the current terminal session
 
 Maintenance:

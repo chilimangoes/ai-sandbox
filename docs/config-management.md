@@ -77,6 +77,14 @@ Copilot:
 - default config: `/state/config/copilot/config.json`
 - auth and session data: `~/.copilot/` mapped into `/state/auth/copilot` and `/state/data/copilot`
 
+OpenCode:
+
+- default config: `/state/config/opencode/opencode.json`
+- auth target: `/state/auth/opencode/auth.json`
+- runtime data: `/state/data/opencode/`
+- cache target: `/state/cache/opencode/`
+- XDG paths are wired so `~/.config/opencode/` and `~/.local/share/opencode/` persist through the `/state` volumes
+
 T3:
 
 - default config: `/state/config/t3/config.json`

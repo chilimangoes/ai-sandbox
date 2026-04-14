@@ -15,4 +15,12 @@ if ($entrypoint -notmatch 'Run ai-sandbox t3 to start T3\.') {
     throw "Expected docker/entrypoint.sh banner output to include a T3 start hint."
 }
 
+if ($banner -notmatch 'opencode') {
+    throw "Expected banner.txt to mention opencode in the available commands list."
+}
+
+if ($entrypoint -notmatch 'opencode') {
+    throw "Expected docker/entrypoint.sh to mention opencode in the shell banner or dispatch logic."
+}
+
 Write-Host "banner-text.ps1 passed"

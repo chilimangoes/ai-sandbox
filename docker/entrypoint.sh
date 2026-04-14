@@ -82,6 +82,7 @@ run_doctor() {
   echo "codex: $(codex --version 2>/dev/null || echo unavailable)"
   echo "gemini: $(gemini --version 2>/dev/null || echo unavailable)"
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
+  echo "opencode: $(opencode --version 2>/dev/null || echo unavailable)"
   echo "node: $(node --version 2>/dev/null || echo unavailable)"
   echo "npm: $(npm --version 2>/dev/null || echo unavailable)"
   echo "t3: $(t3 --help >/dev/null 2>&1 && echo available || echo unavailable)"
@@ -112,6 +113,9 @@ dispatch() {
       ;;
     copilot)
       run_argv_as_sandbox copilot "$@"
+      ;;
+    opencode)
+      run_argv_as_sandbox opencode "$@"
       ;;
     t3)
       run_t3 "$@"
