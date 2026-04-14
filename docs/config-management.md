@@ -41,6 +41,23 @@ On normal later launches:
 - removes config, auth, data, and cache volumes for that workspace
 - reinitializes from image defaults on the next launch
 
+`rm`:
+
+- removes the current workspace container
+- preserves config, auth, data, and cache volumes
+- recreates the container from the current image on the next launch
+
+`stop`:
+
+- stops the current workspace container if it is running
+- preserves the container and all state volumes
+- allows the next launch to start the same container again
+
+`doctor`:
+
+- runs the sandbox's built-in diagnostics inside the current workspace container
+- preserves the container and all state volumes
+
 ## Tool inventory
 
 Codex:
@@ -68,6 +85,6 @@ T3:
 
 ## Update behavior
 
-- `--update` rebuilds the shared image with refreshed base and npm packages, then recreates the container only if needed
-- `--rebuild` always rebuilds the image and recreates the workspace container
+- `--update` rebuilds the shared image with refreshed base and npm packages, then keeps using the current workspace container unless it needs to be recreated
+- `--rebuild` rebuilds the shared image with refreshed base and npm packages, then always removes and recreates the workspace container
 - both flows preserve all state volumes by default

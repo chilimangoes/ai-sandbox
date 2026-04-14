@@ -13,13 +13,13 @@ From a workspace directory:
 
 Maintenance:
 
-- `ai-sandbox doctor`
-- `ai-sandbox stop`
-- `ai-sandbox rm`
-- `ai-sandbox reset-config`
-- `ai-sandbox reset-state`
-- `ai-sandbox --update`
-- `ai-sandbox --rebuild`
+- `ai-sandbox doctor`: run the in-container diagnostics for the current workspace sandbox
+- `ai-sandbox stop`: stop the current workspace container without deleting it
+- `ai-sandbox rm`: remove the current workspace container but keep its persisted volumes
+- `ai-sandbox reset-config`: restore persisted config files from the image defaults while preserving auth and most runtime data
+- `ai-sandbox reset-state`: remove the current workspace container and all persisted state volumes for that workspace, including auth
+- `ai-sandbox --update`: rebuild the shared image, then reuse the existing workspace container unless it needs to be recreated
+- `ai-sandbox --rebuild`: rebuild the shared image and always remove and recreate the workspace container
 - `ai-sandbox --t3-port 3774`
 
 ## Windows
