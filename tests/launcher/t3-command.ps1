@@ -5,15 +5,15 @@ $ErrorActionPreference = "Stop"
 
 $entrypoint = Get-Content (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "docker\entrypoint.sh") -Raw
 
-if ($entrypoint -notmatch 't3 serve --host 0\.0\.0\.0 --port') {
-    throw "Expected docker/entrypoint.sh to invoke the installed t3 binary with the serve subcommand."
+if ($entrypoint -notmatch 't3 start --no-browser --host 0\.0\.0\.0 --port') {
+    throw "Expected docker/entrypoint.sh to invoke the installed t3 binary with the start subcommand and no-browser mode."
 }
 
 if ($entrypoint -notmatch 'export T3CODE_HOME=/state/data/t3;') {
     throw "Expected docker/entrypoint.sh to persist T3 runtime state under /state/data/t3."
 }
 
-if ($entrypoint -notmatch 't3 serve --host 0\.0\.0\.0 --port .* --auto-bootstrap-project-from-cwd') {
+if ($entrypoint -notmatch 't3 start --no-browser --host 0\.0\.0\.0 --port .* --auto-bootstrap-project-from-cwd') {
     throw "Expected docker/entrypoint.sh to auto-bootstrap the current /workspace as a T3 project on first launch."
 }
 
