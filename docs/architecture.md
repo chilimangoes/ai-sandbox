@@ -33,7 +33,8 @@ The image contains all tool binaries and the repo-managed default presets. The c
 
 Runtime filesystem layout:
 
-- `/workspace`: bind mount of the host workspace
+- `/workspace`: trusted parent directory inside the container
+- `/workspace/<project-folder-slug>`: bind mount of the host workspace
 - `/state/config`: persisted user-editable config files
 - `/state/auth`: persisted auth material
 - `/state/data`: persisted tool state and session data
@@ -115,4 +116,4 @@ Windows-first design points:
 Linux notes:
 
 - The shell launcher follows the same naming and lifecycle rules.
-- The launcher passes the host UID/GID to the container so files written into `/workspace` map cleanly on Linux hosts.
+- The launcher passes the host UID/GID to the container so files written into `/workspace/<project-folder-slug>` map cleanly on Linux hosts.

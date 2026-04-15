@@ -4,7 +4,7 @@
 
 ## v1 behavior
 
-- `ai-sandbox` opens an interactive shell in `/workspace`
+- `ai-sandbox` opens an interactive shell in `/workspace/<project-folder-slug>`
 - shell startup prints a short banner with `codex`, `gemini`, `copilot`, `opencode`, and `t3`, plus the selected T3 URL
 - `ai-sandbox t3` starts T3 for the current terminal session; ending the session stops T3
 - auth persists only inside Docker volumes owned by the sandbox

@@ -30,7 +30,7 @@ On normal later launches:
 
 `reset-config`:
 
-- preserves the workspace bind mount
+- preserves the `/workspace/<project-folder-slug>` bind mount
 - preserves auth
 - preserves most runtime data
 - replaces persisted config files with the repo/image defaults

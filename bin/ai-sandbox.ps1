@@ -50,6 +50,8 @@ function Get-WorkspaceMeta {
         Workspace = $fullPath
         Slug = $slug
         Hash = $suffix
+        ContainerWorkspaceRoot = "/workspace"
+        ContainerWorkspacePath = "/workspace/$slug"
         Container = "ai-sandbox-$slug-$suffix"
         ConfigVolume = "ai-sandbox-$slug-$suffix-config"
         AuthVolume = "ai-sandbox-$slug-$suffix-auth"
@@ -90,9 +92,10 @@ function Start-Container {
         "-e", "AI_SANDBOX_T3_PORT=$DefaultContainerPort",
         "-e", "AI_SANDBOX_HOST_T3_PORT=$HostPort",
         "-e", "AI_SANDBOX_T3_URL=http://127.0.0.1:$HostPort",
+        "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
         "-e", "LOCAL_UID=1000",
         "-e", "LOCAL_GID=1000",
-        "-v", "$($Meta.Workspace):/workspace",
+        "-v", "$($Meta.Workspace):$($Meta.ContainerWorkspacePath)",
         "-v", "$($Meta.ConfigVolume):/state/config",
         "-v", "$($Meta.AuthVolume):/state/auth",
         "-v", "$($Meta.DataVolume):/state/data",
@@ -324,6 +327,7 @@ function Exec-InContainer {
         "-e", "AI_SANDBOX_T3_URL=http://127.0.0.1:$script:SelectedHostPort",
         "-e", "AI_SANDBOX_HOST_T3_PORT=$script:SelectedHostPort",
         "-e", "AI_SANDBOX_T3_PORT=$DefaultContainerPort",
+        "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
         $Meta.Container,
         "/opt/ai-sandbox/entrypoint.sh"
     )

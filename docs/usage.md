@@ -59,7 +59,7 @@ Install:
 Notes:
 
 - The launcher passes `LOCAL_UID` and `LOCAL_GID` into the container.
-- Files created in `/workspace` should map back to the invoking Linux user cleanly.
+- Files created in `/workspace/<project-folder-slug>` should map back to the invoking Linux user cleanly.
 
 ## T3 access
 

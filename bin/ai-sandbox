@@ -20,13 +20,14 @@ workspace_meta() {
   local workspace="$1"
   local full_path
   full_path="$(cd "$workspace" && pwd)"
-  local leaf slug hash suffix
+  local leaf slug hash suffix container_workspace_path
   leaf="$(basename "$full_path")"
   slug="$(printf '%s' "$leaf" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
   [[ -n "$slug" ]] || slug="workspace"
   hash="$(printf '%s' "${full_path,,}" | sha256sum | awk '{print $1}')"
   suffix="${hash:0:12}"
-  printf '%s\n' "$full_path" "$slug" "$suffix" "ai-sandbox-$slug-$suffix" \
+  container_workspace_path="/workspace/$slug"
+  printf '%s\n' "$full_path" "$slug" "$suffix" "$container_workspace_path" "ai-sandbox-$slug-$suffix" \
     "ai-sandbox-$slug-$suffix-config" "ai-sandbox-$slug-$suffix-auth" \
     "ai-sandbox-$slug-$suffix-data" "ai-sandbox-$slug-$suffix-cache"
 }
@@ -133,9 +134,10 @@ ensure_container() {
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${host_port}" \
       -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${host_port}" \
+      -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       -e "LOCAL_UID=$(id -u)" \
       -e "LOCAL_GID=$(id -g)" \
-      -v "${WORKSPACE_PATH}:/workspace" \
+      -v "${WORKSPACE_PATH}:${CONTAINER_WORKSPACE_PATH}" \
       -v "${CONFIG_VOLUME}:/state/config" \
       -v "${AUTH_VOLUME}:/state/auth" \
       -v "${DATA_VOLUME}:/state/data" \
@@ -155,6 +157,7 @@ exec_in_container() {
       -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_HOST_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_HOST_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
   else
@@ -162,6 +165,7 @@ exec_in_container() {
       -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_HOST_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_HOST_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
   fi
@@ -207,11 +211,12 @@ mapfile -t META < <(workspace_meta "$PWD")
 WORKSPACE_PATH="${META[0]}"
 WORKSPACE_SLUG="${META[1]}"
 WORKSPACE_HASH="${META[2]}"
-CONTAINER_NAME="${META[3]}"
-CONFIG_VOLUME="${META[4]}"
-AUTH_VOLUME="${META[5]}"
-DATA_VOLUME="${META[6]}"
-CACHE_VOLUME="${META[7]}"
+CONTAINER_WORKSPACE_PATH="${META[3]}"
+CONTAINER_NAME="${META[4]}"
+CONFIG_VOLUME="${META[5]}"
+AUTH_VOLUME="${META[6]}"
+DATA_VOLUME="${META[7]}"
+CACHE_VOLUME="${META[8]}"
 
 if [[ -z "$(image_id "$IMAGE_TAG")" || "$UPDATE" == "true" || "$REBUILD" == "true" ]]; then
   build_image

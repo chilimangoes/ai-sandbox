@@ -10,6 +10,11 @@ if ($slug -ne "example-repo") {
     throw "Unexpected slug: $slug"
 }
 
+$containerWorkspacePath = "/workspace/$slug"
+if ($containerWorkspacePath -ne "/workspace/example-repo") {
+    throw "Expected container workspace path to include the slug."
+}
+
 $sha = [System.Security.Cryptography.SHA256]::Create()
 try {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($fullPath.ToLowerInvariant())

@@ -4,6 +4,7 @@ set -euo pipefail
 DEFAULT_T3_PORT="${AI_SANDBOX_DEFAULT_T3_PORT:-3773}"
 CONTAINER_T3_PORT="${AI_SANDBOX_T3_PORT:-$DEFAULT_T3_PORT}"
 HOST_T3_URL="${AI_SANDBOX_T3_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_T3_PORT:-$CONTAINER_T3_PORT}}"
+WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
 
 ensure_runtime_user() {
   local target_uid="${LOCAL_UID:-1000}"
@@ -26,13 +27,13 @@ ensure_runtime_user() {
     usermod -o -u "$target_uid" -g "$target_gid" sandbox
   fi
 
-  mkdir -p /workspace /state/config /state/auth /state/data /state/cache /home/sandbox
+  mkdir -p /workspace "$WORKSPACE_PATH" /state/config /state/auth /state/data /state/cache /home/sandbox
   chown -R sandbox:sandbox /state /home/sandbox
 }
 
 run_as_sandbox() {
   local command="$1"
-  exec runuser -u sandbox -- /bin/bash -lc "export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; cd /workspace; $command"
+  exec runuser -u sandbox -- /bin/bash -lc "export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
 }
 
 ensure_runtime_user
