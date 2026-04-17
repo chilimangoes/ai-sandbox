@@ -16,6 +16,12 @@
 - Run `ai-sandbox --t3-port 3774`.
 - Without an explicit override, the launcher will probe upward from `3773`.
 
+## CodeNomad port conflict
+
+- Run `ai-sandbox --codenomad-port 9901 codenomad`.
+- Without an explicit override, the launcher will probe upward from `9899`.
+- If the workspace container already exists with a different published CodeNomad port, the launcher recreates the container so the requested mapping can take effect.
+
 ## Config changes were overwritten
 
 - Normal startup does not overwrite persisted config.
@@ -31,3 +37,10 @@
 - Verify `codex` is authenticated inside the sandbox.
 - Run `codex app-server --help` inside the sandbox to confirm the CLI supports the app-server mode.
 - Rebuild with `ai-sandbox --update` if the image was built against an older CLI release.
+
+## CodeNomad does not start
+
+- Verify the image has been rebuilt after adding CodeNomad support.
+- Run `ai-sandbox doctor` and confirm `codenomad` and `opencode` both report versions inside the sandbox.
+- Verify `opencode` is authenticated inside the sandbox before expecting CodeNomad to open working sessions.
+- If a future CodeNomad release changes its auth bootstrap requirements, revisit the launcher flags around `--dangerously-skip-auth` for loopback-only sandbox use.

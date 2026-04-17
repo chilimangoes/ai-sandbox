@@ -11,6 +11,7 @@ From a workspace directory:
 - `ai-sandbox copilot`: run Copilot CLI in the sandbox
 - `ai-sandbox opencode`: run OpenCode in the sandbox
 - `ai-sandbox t3`: start T3 in the sandbox for the current terminal session
+- `ai-sandbox codenomad`: start CodeNomad in the sandbox for the current terminal session
 
 Maintenance:
 
@@ -22,6 +23,7 @@ Maintenance:
 - `ai-sandbox --update`: rebuild the shared image, then reuse the existing workspace container unless it needs to be recreated
 - `ai-sandbox --rebuild`: rebuild the shared image and always remove and recreate the workspace container
 - `ai-sandbox --t3-port 3774`
+- `ai-sandbox --codenomad-port 9901`
 
 ## Windows
 
@@ -67,3 +69,11 @@ Notes:
 - If that port is occupied, the launcher auto-selects the next free port unless `--t3-port` is supplied.
 - The shell banner prints the chosen URL for the current workspace sandbox.
 - The URL is not live in plain shell mode; run `ai-sandbox t3` before opening it in a browser.
+
+## CodeNomad access
+
+- Default host URL: `http://127.0.0.1:9899`
+- If that port is occupied, the launcher auto-selects the next free port unless `--codenomad-port` is supplied.
+- The shell banner prints the chosen URL for the current workspace sandbox.
+- The URL is not live in plain shell mode; run `ai-sandbox codenomad` before opening it in a browser.
+- CodeNomad runs inside the sandbox and uses the sandbox's `opencode` binary, config, auth, and workspace files.

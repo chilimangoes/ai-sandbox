@@ -4,11 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 IMAGE_TAG="ai-sandbox:latest"
-DEFAULT_CONTAINER_PORT=3773
-DEFAULT_HOST_PORT=3773
+DEFAULT_T3_CONTAINER_PORT=3773
+DEFAULT_T3_HOST_PORT=3773
+DEFAULT_CODENOMAD_CONTAINER_PORT=9899
+DEFAULT_CODENOMAD_HOST_PORT=9899
 
 usage() {
-  echo "Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [shell|codex|gemini|copilot|opencode|t3|doctor|stop|rm|reset-config|reset-state]"
+  echo "Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [--codenomad-port <port>] [shell|codex|gemini|copilot|opencode|t3|codenomad|doctor|stop|rm|reset-config|reset-state]"
 }
 
 assert_docker() {
@@ -91,13 +93,15 @@ remove_container() {
 
 existing_host_port() {
   local name="$1"
+  local container_port="$2"
   local output
-  output="$(docker port "$name" "${DEFAULT_CONTAINER_PORT}/tcp" 2>/dev/null || true)"
+  output="$(docker port "$name" "${container_port}/tcp" 2>/dev/null || true)"
   [[ "$output" =~ :([0-9]+)$ ]] && echo "${BASH_REMATCH[1]}"
 }
 
 ensure_container() {
-  local host_port="$1"
+  local t3_host_port="$1"
+  local codenomad_host_port="$2"
 
   local current_image_id
   current_image_id="$(image_id "$IMAGE_TAG")"
@@ -107,12 +111,17 @@ ensure_container() {
     local running_image_id
     local recreate_needed="false"
     running_image_id="$(container_image_id "$CONTAINER_NAME")"
-    local current_port
-    current_port="$(existing_host_port "$CONTAINER_NAME")"
+    local current_t3_host_port
+    current_t3_host_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
+    local current_codenomad_port
+    current_codenomad_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_CODENOMAD_CONTAINER_PORT")"
     if [[ "$FORCE_RECREATE" == "true" || "$running_image_id" != "$current_image_id" ]]; then
       recreate_needed="true"
     fi
-    if [[ -n "$current_port" && "$current_port" != "$host_port" ]]; then
+    if [[ -n "$current_t3_host_port" && "$current_t3_host_port" != "$t3_host_port" ]]; then
+      recreate_needed="true"
+    fi
+    if [[ -n "$current_codenomad_port" && "$current_codenomad_port" != "$codenomad_host_port" ]]; then
       recreate_needed="true"
     fi
     if [[ "$recreate_needed" == "true" ]]; then
@@ -126,24 +135,54 @@ ensure_container() {
   ensure_volume "$CACHE_VOLUME"
 
   if ! container_exists "$CONTAINER_NAME"; then
-    docker run -d \
-      --name "$CONTAINER_NAME" \
-      --label "ai-sandbox.workspace=${WORKSPACE_PATH}" \
-      --label "ai-sandbox.hash=${WORKSPACE_HASH}" \
-      -p "${host_port}:${DEFAULT_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_HOST_T3_PORT=${host_port}" \
-      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${host_port}" \
-      -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
-      -e "LOCAL_UID=$(id -u)" \
-      -e "LOCAL_GID=$(id -g)" \
-      -v "${WORKSPACE_PATH}:${CONTAINER_WORKSPACE_PATH}" \
-      -v "${CONFIG_VOLUME}:/state/config" \
-      -v "${AUTH_VOLUME}:/state/auth" \
-      -v "${DATA_VOLUME}:/state/data" \
-      -v "${CACHE_VOLUME}:/state/cache" \
-      "$IMAGE_TAG" \
-      daemon >/dev/null
+    local attempt_t3_host_port="$t3_host_port"
+    local attempt_codenomad_host_port="$codenomad_host_port"
+    local attempt error_message
+    for ((attempt=0; attempt<5; attempt++)); do
+      if error_message="$(
+        docker run -d \
+          --name "$CONTAINER_NAME" \
+          --label "ai-sandbox.workspace=${WORKSPACE_PATH}" \
+          --label "ai-sandbox.hash=${WORKSPACE_HASH}" \
+          -p "127.0.0.1:${attempt_t3_host_port}:${DEFAULT_T3_CONTAINER_PORT}" \
+          -p "127.0.0.1:${attempt_codenomad_host_port}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
+          -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
+          -e "AI_SANDBOX_HOST_T3_PORT=${attempt_t3_host_port}" \
+          -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${attempt_t3_host_port}" \
+          -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
+          -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${attempt_codenomad_host_port}" \
+          -e "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:${attempt_codenomad_host_port}" \
+          -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
+          -e "LOCAL_UID=$(id -u)" \
+          -e "LOCAL_GID=$(id -g)" \
+          -v "${WORKSPACE_PATH}:${CONTAINER_WORKSPACE_PATH}" \
+          -v "${CONFIG_VOLUME}:/state/config" \
+          -v "${AUTH_VOLUME}:/state/auth" \
+          -v "${DATA_VOLUME}:/state/data" \
+          -v "${CACHE_VOLUME}:/state/cache" \
+          "$IMAGE_TAG" \
+          daemon 2>&1 >/dev/null
+      )"; then
+        SELECTED_T3_HOST_PORT="$attempt_t3_host_port"
+        SELECTED_CODENOMAD_HOST_PORT="$attempt_codenomad_host_port"
+        break
+      fi
+
+      remove_container "$CONTAINER_NAME"
+      if [[ "$error_message" == *"port is already allocated"* ]]; then
+        attempt_t3_host_port="$(free_port "$((attempt_t3_host_port + 1))")"
+        attempt_codenomad_host_port="$(free_port "$((attempt_codenomad_host_port + 1))")"
+        continue
+      fi
+
+      echo "$error_message" >&2
+      exit 1
+    done
+
+    if ! container_exists "$CONTAINER_NAME"; then
+      echo "Unable to start container after retrying host port selection." >&2
+      exit 1
+    fi
   elif ! container_running "$CONTAINER_NAME"; then
     docker start "$CONTAINER_NAME" >/dev/null
   fi
@@ -154,17 +193,23 @@ exec_in_container() {
   shift
   if [[ "$interactive" == "true" ]]; then
     docker exec -it \
-      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_HOST_PORT}" \
-      -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_HOST_PORT}" \
-      -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_T3_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_T3_HOST_PORT}" \
+      -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:${SELECTED_CODENOMAD_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${SELECTED_CODENOMAD_HOST_PORT}" \
+      -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
       -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
   else
     docker exec \
-      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_HOST_PORT}" \
-      -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_HOST_PORT}" \
-      -e "AI_SANDBOX_T3_PORT=${DEFAULT_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${SELECTED_T3_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_T3_PORT=${SELECTED_T3_HOST_PORT}" \
+      -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:${SELECTED_CODENOMAD_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${SELECTED_CODENOMAD_HOST_PORT}" \
+      -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
       -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
@@ -174,7 +219,8 @@ exec_in_container() {
 UPDATE="false"
 REBUILD="false"
 FORCE_RECREATE="false"
-EXPLICIT_PORT=""
+EXPLICIT_T3_PORT=""
+EXPLICIT_CODENOMAD_PORT=""
 POSITIONALS=()
 
 while [[ $# -gt 0 ]]; do
@@ -193,7 +239,11 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --t3-port)
-      EXPLICIT_PORT="$2"
+      EXPLICIT_T3_PORT="$2"
+      shift 2
+      ;;
+    --codenomad-port)
+      EXPLICIT_CODENOMAD_PORT="$2"
       shift 2
       ;;
     *)
@@ -243,20 +293,30 @@ if [[ "$REBUILD" == "true" ]]; then
 fi
 
 if container_exists "$CONTAINER_NAME"; then
-  EXISTING_PORT="$(existing_host_port "$CONTAINER_NAME")"
+  EXISTING_T3_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
+  EXISTING_CODENOMAD_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_CODENOMAD_CONTAINER_PORT")"
 else
-  EXISTING_PORT=""
+  EXISTING_T3_PORT=""
+  EXISTING_CODENOMAD_PORT=""
 fi
 
-if [[ -n "$EXPLICIT_PORT" ]]; then
-  SELECTED_HOST_PORT="$EXPLICIT_PORT"
-elif [[ -n "$EXISTING_PORT" ]]; then
-  SELECTED_HOST_PORT="$EXISTING_PORT"
+if [[ -n "$EXPLICIT_T3_PORT" ]]; then
+  SELECTED_T3_HOST_PORT="$EXPLICIT_T3_PORT"
+elif [[ -n "$EXISTING_T3_PORT" ]]; then
+  SELECTED_T3_HOST_PORT="$EXISTING_T3_PORT"
 else
-  SELECTED_HOST_PORT="$(free_port "$DEFAULT_HOST_PORT")"
+  SELECTED_T3_HOST_PORT="$(free_port "$DEFAULT_T3_HOST_PORT")"
 fi
 
-ensure_container "$SELECTED_HOST_PORT"
+if [[ -n "$EXPLICIT_CODENOMAD_PORT" ]]; then
+  SELECTED_CODENOMAD_HOST_PORT="$EXPLICIT_CODENOMAD_PORT"
+elif [[ -n "$EXISTING_CODENOMAD_PORT" ]]; then
+  SELECTED_CODENOMAD_HOST_PORT="$EXISTING_CODENOMAD_PORT"
+else
+  SELECTED_CODENOMAD_HOST_PORT="$(free_port "$DEFAULT_CODENOMAD_HOST_PORT")"
+fi
+
+ensure_container "$SELECTED_T3_HOST_PORT" "$SELECTED_CODENOMAD_HOST_PORT"
 
 case "$COMMAND" in
   reset-config)

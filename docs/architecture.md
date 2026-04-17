@@ -3,8 +3,9 @@
 ## Locked v1 decisions
 
 - `ai-sandbox` opens an interactive shell by default.
-- Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, `opencode`, and `t3`, plus the selected host T3 URL to use after `ai-sandbox t3` starts the server.
+- Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, `opencode`, `t3`, and `codenomad`, plus the selected host T3 and CodeNomad URLs to use after their server commands start.
 - `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
+- `ai-sandbox codenomad` runs CodeNomad in the foreground for the current session. Closing the terminal stops it.
 - Tool auth is created and stored only inside Docker volumes.
 - Image refreshes only happen when the image is missing or the user passes `--update` or `--rebuild`.
 - Docker is the only supported runtime. Podman is intentionally out of scope.
@@ -17,7 +18,7 @@ The host launcher is workspace-centric:
 2. Derive a stable workspace slug and short hash from the absolute path.
 3. Build or refresh the shared image when required.
 4. Start one detached workspace-scoped container.
-5. Execute either `shell`, `codex`, `gemini`, `copilot`, `opencode`, or `t3` inside that container.
+5. Execute either `shell`, `codex`, `gemini`, `copilot`, `opencode`, `t3`, or `codenomad` inside that container.
 
 Each workspace gets:
 
@@ -40,6 +41,8 @@ Runtime filesystem layout:
 - `/state/data`: persisted tool state and session data
 - `/state/cache`: persisted caches
 - `/opt/ai-sandbox/defaults/configs`: image-baked default presets copied from this repo
+
+CodeNomad runs inside the same container as `opencode`, so the browser only crosses the Docker boundary to reach the UI. All OpenCode execution, file access, and auth stay inside the sandbox.
 
 The entrypoint performs idempotent bootstrap on every start:
 
@@ -69,6 +72,7 @@ Primary commands:
 - `ai-sandbox copilot`
 - `ai-sandbox opencode`
 - `ai-sandbox t3`
+- `ai-sandbox codenomad`
 
 Maintenance commands:
 
@@ -80,6 +84,7 @@ Maintenance commands:
 - `ai-sandbox --update`
 - `ai-sandbox --rebuild`
 - `ai-sandbox --t3-port <port>`
+- `ai-sandbox --codenomad-port <port>`
 
 ## T3 exposure
 
@@ -89,6 +94,15 @@ Maintenance commands:
 - The chosen URL is surfaced in shell startup output and when T3 launches.
 - Shell mode reserves and prints the URL, but only `ai-sandbox t3` starts the T3 server.
 - T3 is configured for Codex-backed usage in v1. Future provider support can add new preset files without changing the launcher contract.
+
+## CodeNomad exposure
+
+- Container port: `9899`
+- Default host port: `9899`
+- If `--codenomad-port` is omitted, the launcher probes from `9899` upward until it finds a free host port.
+- The chosen URL is surfaced in shell startup output and when CodeNomad launches.
+- Shell mode reserves and prints the URL, but only `ai-sandbox codenomad` starts the CodeNomad server.
+- The workspace container publishes both the T3 and CodeNomad service ports at creation time because Docker port mappings cannot be added later without recreating the container.
 
 ## Image design
 
@@ -103,6 +117,7 @@ The image installs:
 - `@google/gemini-cli`
 - `@github/copilot`
 - `opencode-ai`
+- `@neuralnomads/codenomad`
 - a lightweight `t3` launcher path via `npx t3`
 
 ## Compatibility notes

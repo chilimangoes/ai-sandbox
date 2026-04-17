@@ -23,4 +23,12 @@ if ($entrypoint -notmatch 'opencode') {
     throw "Expected docker/entrypoint.sh to mention opencode in the shell banner or dispatch logic."
 }
 
+if ($banner -notmatch 'codenomad') {
+    throw "Expected banner.txt to mention codenomad in the available commands list."
+}
+
+if ($entrypoint -notmatch 'Run ai-sandbox codenomad to start CodeNomad\.') {
+    throw "Expected docker/entrypoint.sh banner output to include a CodeNomad start hint."
+}
+
 Write-Host "banner-text.ps1 passed"

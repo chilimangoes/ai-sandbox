@@ -28,6 +28,15 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 - OpenCode auth persists at `/state/auth/opencode/auth.json`.
 - The container maps OpenCode's expected XDG paths so `~/.config/opencode/opencode.json` and `~/.local/share/opencode/auth.json` survive container recreation.
 
+## CodeNomad
+
+- Start CodeNomad by running `ai-sandbox codenomad`.
+- CodeNomad uses the sandbox's `opencode`, so OpenCode must already be installed and authenticated inside the sandbox.
+- The sandbox launcher currently starts CodeNomad with its internal auth disabled because it is exposed only on loopback by default and current CodeNomad server builds require an explicit password bootstrap otherwise.
+- CodeNomad config defaults live under `/state/config/codenomad/config.json`.
+- CodeNomad instance state persists under `/state/data/codenomad/instances`.
+- CodeNomad TLS material, if enabled later, persists under `/state/data/codenomad/tls`.
+
 ## T3
 
 - T3 is configured for Codex-backed usage in v1.

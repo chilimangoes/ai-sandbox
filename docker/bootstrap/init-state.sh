@@ -10,6 +10,7 @@ mkdir -p \
   /state/config/gemini \
   /state/config/copilot \
   /state/config/opencode \
+  /state/config/codenomad \
   /state/config/t3 \
   /state/config/shared \
   /state/auth/codex \
@@ -21,6 +22,9 @@ mkdir -p \
   /state/data/gemini \
   /state/data/copilot \
   /state/data/opencode \
+  /state/data/codenomad \
+  /state/data/codenomad/instances \
+  /state/data/codenomad/tls \
   /state/data/t3 \
   /state/cache/npm \
   /state/cache/opencode
@@ -47,6 +51,11 @@ ln -sfn /state/config/opencode /home/sandbox/.config/opencode
 ln -sfn /state/data/opencode /home/sandbox/.local/share/opencode
 ln -sfn /state/auth/opencode/auth.json /state/data/opencode/auth.json
 ln -sfn /state/cache/opencode /home/sandbox/.cache/opencode
+
+mkdir -p /home/sandbox/.config/codenomad
+ln -sfn /state/config/codenomad/config.json /home/sandbox/.config/codenomad/config.json
+ln -sfn /state/data/codenomad/instances /home/sandbox/.config/codenomad/instances
+ln -sfn /state/data/codenomad/tls /home/sandbox/.config/codenomad/tls
 
 ln -sfn /state/config/t3/config.json /home/sandbox/.config/ai-sandbox-t3.json
 

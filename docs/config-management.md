@@ -85,6 +85,13 @@ OpenCode:
 - cache target: `/state/cache/opencode/`
 - XDG paths are wired so `~/.config/opencode/` and `~/.local/share/opencode/` persist through the `/state` volumes
 
+CodeNomad:
+
+- default config: `/state/config/codenomad/config.json`
+- runtime data: `/state/data/codenomad/instances`
+- TLS material: `/state/data/codenomad/tls`
+- `~/.config/codenomad/` is wired into `/state` so CodeNomad server state survives container recreation
+
 T3:
 
 - default config: `/state/config/t3/config.json`

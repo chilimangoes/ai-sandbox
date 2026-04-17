@@ -9,12 +9,14 @@ $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptRoot
 $ImageTag = "ai-sandbox:latest"
-$DefaultContainerPort = 3773
-$DefaultHostPort = 3773
+$DefaultT3ContainerPort = 3773
+$DefaultT3HostPort = 3773
+$DefaultCodeNomadContainerPort = 9899
+$DefaultCodeNomadHostPort = 9899
 
 function Write-Usage {
     @"
-Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [shell|codex|gemini|copilot|opencode|t3|doctor|stop|rm|reset-config|reset-state]
+Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [--codenomad-port <port>] [shell|codex|gemini|copilot|opencode|t3|codenomad|doctor|stop|rm|reset-config|reset-state]
 "@
 }
 
@@ -80,7 +82,8 @@ function Get-FreePort {
 function Start-Container {
     param(
         [pscustomobject]$Meta,
-        [int]$HostPort
+        [int]$T3HostPort,
+        [int]$CodeNomadHostPort
     )
 
     $dockerArgs = @(
@@ -88,10 +91,14 @@ function Start-Container {
         "--name", $Meta.Container,
         "--label", "ai-sandbox.workspace=$($Meta.Workspace)",
         "--label", "ai-sandbox.hash=$($Meta.Hash)",
-        "-p", "${HostPort}:${DefaultContainerPort}",
-        "-e", "AI_SANDBOX_T3_PORT=$DefaultContainerPort",
-        "-e", "AI_SANDBOX_HOST_T3_PORT=$HostPort",
-        "-e", "AI_SANDBOX_T3_URL=http://127.0.0.1:$HostPort",
+        "-p", "127.0.0.1:${T3HostPort}:${DefaultT3ContainerPort}",
+        "-p", "127.0.0.1:${CodeNomadHostPort}:${DefaultCodeNomadContainerPort}",
+        "-e", "AI_SANDBOX_T3_PORT=$DefaultT3ContainerPort",
+        "-e", "AI_SANDBOX_HOST_T3_PORT=$T3HostPort",
+        "-e", "AI_SANDBOX_T3_URL=http://127.0.0.1:$T3HostPort",
+        "-e", "AI_SANDBOX_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
+        "-e", "AI_SANDBOX_HOST_CODENOMAD_PORT=$CodeNomadHostPort",
+        "-e", "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:$CodeNomadHostPort",
         "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
         "-e", "LOCAL_UID=1000",
         "-e", "LOCAL_GID=1000",
@@ -212,7 +219,10 @@ function Remove-ContainerIfExists {
 }
 
 function Get-ExistingHostPort {
-    param([string]$Name)
+    param(
+        [string]$Name,
+        [int]$ContainerPort
+    )
 
     try {
         $dockerCommand = Get-Command docker -ErrorAction Stop
@@ -220,10 +230,10 @@ function Get-ExistingHostPort {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         if ($dockerPath -match '\.(cmd|bat)$') {
             $psi.FileName = $env:ComSpec
-            $psi.Arguments = "/d /c """"$dockerPath"" port $Name $DefaultContainerPort/tcp"""
+            $psi.Arguments = "/d /c """"$dockerPath"" port $Name $ContainerPort/tcp"""
         } else {
             $psi.FileName = $dockerPath
-            $psi.Arguments = "port $Name $DefaultContainerPort/tcp"
+            $psi.Arguments = "port $Name $ContainerPort/tcp"
         }
         $psi.UseShellExecute = $false
         $psi.RedirectStandardOutput = $true
@@ -259,7 +269,8 @@ function Get-ExistingHostPort {
 function Ensure-Container {
     param(
         [pscustomobject]$Meta,
-        [int]$HostPort,
+        [int]$T3HostPort,
+        [int]$CodeNomadHostPort,
         [switch]$ForceRecreate
     )
 
@@ -270,8 +281,12 @@ function Ensure-Container {
 
     if (Test-ContainerExists -Name $Meta.Container) {
         $containerImageId = Get-ContainerImageId -Name $Meta.Container
-        $existingPort = Get-ExistingHostPort -Name $Meta.Container
-        if ($ForceRecreate -or $containerImageId -ne $currentImageId -or ($existingPort -and $existingPort -ne $HostPort)) {
+        $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
+        $existingCodeNomadPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultCodeNomadContainerPort
+        if ($ForceRecreate -or
+            $containerImageId -ne $currentImageId -or
+            ($existingT3Port -and $existingT3Port -ne $T3HostPort) -or
+            ($existingCodeNomadPort -and $existingCodeNomadPort -ne $CodeNomadHostPort)) {
             Remove-ContainerIfExists -Name $Meta.Container
         }
     }
@@ -282,16 +297,19 @@ function Ensure-Container {
     Ensure-Volume -Name $Meta.CacheVolume
 
     if (-not (Test-ContainerExists -Name $Meta.Container)) {
-        $attemptPort = $HostPort
+        $attemptT3Port = $T3HostPort
+        $attemptCodeNomadPort = $CodeNomadHostPort
         for ($attempt = 0; $attempt -lt 5; $attempt++) {
             try {
-                Start-Container -Meta $Meta -HostPort $attemptPort
-                $script:SelectedHostPort = $attemptPort
+                Start-Container -Meta $Meta -T3HostPort $attemptT3Port -CodeNomadHostPort $attemptCodeNomadPort
+                $script:SelectedT3HostPort = $attemptT3Port
+                $script:SelectedCodeNomadHostPort = $attemptCodeNomadPort
                 break
             } catch {
                 Remove-ContainerIfExists -Name $Meta.Container
-                if ($_.Exception.Message -match 'port is already allocated' -and -not $ForceRecreate) {
-                    $attemptPort = Get-FreePort -StartPort ($attemptPort + 1)
+                if ($_.Exception.Message -match 'port is already allocated') {
+                    $attemptT3Port = Get-FreePort -StartPort ($attemptT3Port + 1)
+                    $attemptCodeNomadPort = Get-FreePort -StartPort ($attemptCodeNomadPort + 1)
                     continue
                 }
                 throw
@@ -324,9 +342,12 @@ function Exec-InContainer {
     })
 
     $dockerArgs += @(
-        "-e", "AI_SANDBOX_T3_URL=http://127.0.0.1:$script:SelectedHostPort",
-        "-e", "AI_SANDBOX_HOST_T3_PORT=$script:SelectedHostPort",
-        "-e", "AI_SANDBOX_T3_PORT=$DefaultContainerPort",
+        "-e", "AI_SANDBOX_T3_URL=http://127.0.0.1:$script:SelectedT3HostPort",
+        "-e", "AI_SANDBOX_HOST_T3_PORT=$script:SelectedT3HostPort",
+        "-e", "AI_SANDBOX_T3_PORT=$DefaultT3ContainerPort",
+        "-e", "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:$script:SelectedCodeNomadHostPort",
+        "-e", "AI_SANDBOX_HOST_CODENOMAD_PORT=$script:SelectedCodeNomadHostPort",
+        "-e", "AI_SANDBOX_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
         "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
         $Meta.Container,
         "/opt/ai-sandbox/entrypoint.sh"
@@ -337,7 +358,8 @@ function Exec-InContainer {
 
 $update = $false
 $rebuild = $false
-$explicitPort = $null
+$explicitT3Port = $null
+$explicitCodeNomadPort = $null
 $positionals = New-Object System.Collections.Generic.List[string]
 
 for ($i = 0; $i -lt $ArgsList.Count; $i++) {
@@ -357,7 +379,14 @@ for ($i = 0; $i -lt $ArgsList.Count; $i++) {
             if ($i -ge $ArgsList.Count) {
                 throw "--t3-port requires a value."
             }
-            $explicitPort = [int]$ArgsList[$i]
+            $explicitT3Port = [int]$ArgsList[$i]
+        }
+        "--codenomad-port" {
+            $i++
+            if ($i -ge $ArgsList.Count) {
+                throw "--codenomad-port requires a value."
+            }
+            $explicitCodeNomadPort = [int]$ArgsList[$i]
         }
         default {
             $positionals.Add($ArgsList[$i])
@@ -399,10 +428,12 @@ if ($rebuild) {
     Remove-ContainerIfExists -Name $meta.Container
 }
 
-$existingPort = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container } else { $null }
-$script:SelectedHostPort = if ($explicitPort) { $explicitPort } elseif ($existingPort) { $existingPort } else { Get-FreePort -StartPort $DefaultHostPort }
+$existingT3Port = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container -ContainerPort $DefaultT3ContainerPort } else { $null }
+$existingCodeNomadPort = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container -ContainerPort $DefaultCodeNomadContainerPort } else { $null }
+$script:SelectedT3HostPort = if ($explicitT3Port) { $explicitT3Port } elseif ($existingT3Port) { $existingT3Port } else { Get-FreePort -StartPort $DefaultT3HostPort }
+$script:SelectedCodeNomadHostPort = if ($explicitCodeNomadPort) { $explicitCodeNomadPort } elseif ($existingCodeNomadPort) { $existingCodeNomadPort } else { Get-FreePort -StartPort $DefaultCodeNomadHostPort }
 
-Ensure-Container -Meta $meta -HostPort $script:SelectedHostPort -ForceRecreate:$rebuild
+Ensure-Container -Meta $meta -T3HostPort $script:SelectedT3HostPort -CodeNomadHostPort $script:SelectedCodeNomadHostPort -ForceRecreate:$rebuild
 
 switch ($command) {
     "reset-config" {

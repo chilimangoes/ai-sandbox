@@ -4,6 +4,9 @@ set -euo pipefail
 DEFAULT_T3_PORT="${AI_SANDBOX_DEFAULT_T3_PORT:-3773}"
 CONTAINER_T3_PORT="${AI_SANDBOX_T3_PORT:-$DEFAULT_T3_PORT}"
 HOST_T3_URL="${AI_SANDBOX_T3_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_T3_PORT:-$CONTAINER_T3_PORT}}"
+DEFAULT_CODENOMAD_PORT="${AI_SANDBOX_DEFAULT_CODENOMAD_PORT:-9899}"
+CONTAINER_CODENOMAD_PORT="${AI_SANDBOX_CODENOMAD_PORT:-$DEFAULT_CODENOMAD_PORT}"
+HOST_CODENOMAD_URL="${AI_SANDBOX_CODENOMAD_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_CODENOMAD_PORT:-$CONTAINER_CODENOMAD_PORT}}"
 WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
 
 ensure_runtime_user() {
@@ -33,7 +36,7 @@ ensure_runtime_user() {
 
 run_as_sandbox() {
   local command="$1"
-  exec runuser -u sandbox -- /bin/bash -lc "export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
+  exec runuser -u sandbox -- /bin/bash -lc "export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
 }
 
 ensure_runtime_user
@@ -67,11 +70,29 @@ rewrite_t3_output() {
   done
 }
 
+rewrite_codenomad_output() {
+  while IFS= read -r line; do
+    case "$line" in
+      "Local Connection URL :"*)
+        echo "Local Connection URL : $AI_SANDBOX_CODENOMAD_URL"
+        ;;
+      "Remote Connection URL :"*)
+        echo "Remote Connection URL : $AI_SANDBOX_CODENOMAD_URL"
+        ;;
+      *)
+        echo "$line"
+        ;;
+    esac
+  done
+}
+
 print_banner() {
   printf '\n'
   cat /opt/ai-sandbox/defaults/configs/shared/banner.txt
   printf '\nT3 URL (after `ai-sandbox t3`): %s\n' "$HOST_T3_URL"
+  printf 'CodeNomad URL (after `ai-sandbox codenomad`): %s\n' "$HOST_CODENOMAD_URL"
   printf 'Run ai-sandbox t3 to start T3.\n\n'
+  printf 'Run ai-sandbox codenomad to start CodeNomad.\n\n'
 }
 
 reset_config() {
@@ -84,6 +105,7 @@ run_doctor() {
   echo "gemini: $(gemini --version 2>/dev/null || echo unavailable)"
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
   echo "opencode: $(opencode --version 2>/dev/null || echo unavailable)"
+  echo "codenomad: $(codenomad --version 2>/dev/null || echo unavailable)"
   echo "node: $(node --version 2>/dev/null || echo unavailable)"
   echo "npm: $(npm --version 2>/dev/null || echo unavailable)"
   echo "t3: $(t3 --help >/dev/null 2>&1 && echo available || echo unavailable)"
@@ -92,6 +114,11 @@ run_doctor() {
 run_t3() {
   echo "Starting T3 on $HOST_T3_URL"
   run_as_sandbox "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
+}
+
+run_codenomad() {
+  echo "Starting CodeNomad on $HOST_CODENOMAD_URL"
+  run_as_sandbox "$(declare -f rewrite_codenomad_output); export CLI_HTTP=true; export CLI_HTTPS=false; export CLI_HOST=0.0.0.0; export CLI_HTTP_PORT='$CONTAINER_CODENOMAD_PORT'; export CLI_WORKSPACE_ROOT='$WORKSPACE_PATH'; export CODENOMAD_SKIP_AUTH=true; codenomad --http=true --https=false --host 0.0.0.0 --http-port '$CONTAINER_CODENOMAD_PORT' --workspace-root '$WORKSPACE_PATH' --dangerously-skip-auth 2>&1 | rewrite_codenomad_output"
 }
 
 dispatch() {
@@ -117,6 +144,9 @@ dispatch() {
       ;;
     opencode)
       run_argv_as_sandbox opencode "$@"
+      ;;
+    codenomad)
+      run_codenomad "$@"
       ;;
     t3)
       run_t3 "$@"

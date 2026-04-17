@@ -45,3 +45,4 @@ lerna-debug.log*
 # Misc
 *.pid
 *.pid.lock
+.worktrees/

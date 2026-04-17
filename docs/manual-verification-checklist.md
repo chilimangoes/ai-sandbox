@@ -8,7 +8,7 @@
 ## Container basics
 
 - `ai-sandbox` opens a shell in `/workspace/<project-folder-slug>`.
-- The shell banner shows the available commands, including `opencode`, and the T3 URL reserved for `ai-sandbox t3`.
+- The shell banner shows the available commands, including `opencode` and `codenomad`, and the URLs reserved for `ai-sandbox t3` and `ai-sandbox codenomad`.
 - Files created in `/workspace/<project-folder-slug>` appear on the host.
 
 ## Tool versions
@@ -27,6 +27,13 @@
 - `ai-sandbox t3` starts a server bound to the selected host port.
 - The host browser can reach the printed T3 URL.
 - T3 can create a Codex-backed session after Codex is authenticated.
+
+## CodeNomad
+
+- `ai-sandbox codenomad` starts a server bound to the selected host port.
+- The host browser can reach the printed CodeNomad URL.
+- CodeNomad can open the current workspace and use the sandbox's `opencode`.
+- `ai-sandbox --codenomad-port 9901 codenomad` honors the explicit port.
 
 ## Reset semantics
 

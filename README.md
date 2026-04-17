@@ -5,8 +5,9 @@
 ## v1 behavior
 
 - `ai-sandbox` opens an interactive shell in `/workspace/<project-folder-slug>`
-- shell startup prints a short banner with `codex`, `gemini`, `copilot`, `opencode`, and `t3`, plus the selected T3 URL
+- shell startup prints a short banner with `codex`, `gemini`, `copilot`, `opencode`, `t3`, and `codenomad`, plus the selected T3 and CodeNomad URLs
 - `ai-sandbox t3` starts T3 for the current terminal session; ending the session stops T3
+- `ai-sandbox codenomad` starts CodeNomad server/web mode for the current terminal session; ending the session stops CodeNomad
 - auth persists only inside Docker volumes owned by the sandbox
 - updates happen only through explicit `--update` or `--rebuild`
 
@@ -17,6 +18,7 @@
 - GitHub Copilot CLI
 - OpenCode
 - T3 Code
+- CodeNomad
 
 ## Supported environments
 
@@ -36,7 +38,7 @@ Unsupported in v1:
 2. Add the `/bin` directory your `PATH`.
 3. Change into any workspace directory.
 4. Run `ai-sandbox`.
-5. Use `codex`, `gemini`, `copilot`, `opencode`, or `t3` from inside the sandbox shell.
+5. Use `codex`, `gemini`, `copilot`, `opencode`, `t3`, or `codenomad` from inside the sandbox shell.
 
 Further details live in:
 
