@@ -37,6 +37,15 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 - CodeNomad instance state persists under `/state/data/codenomad/instances`.
 - CodeNomad TLS material, if enabled later, persists under `/state/data/codenomad/tls`.
 
+## Paseo
+
+- Start Paseo by running `ai-sandbox paseo`.
+- Paseo is a daemon/orchestrator, not the underlying credential source for agent providers.
+- Authenticate the provider CLIs that Paseo will manage inside the sandbox first, such as `codex` or `opencode`.
+- Paseo config defaults live under `/state/config/paseo/config.json`.
+- Paseo runtime state persists under `/state/data/paseo`.
+- The launcher sets `PASEO_HOME=/state/data/paseo` for the daemon.
+
 ## T3
 
 - T3 is configured for Codex-backed usage in v1.

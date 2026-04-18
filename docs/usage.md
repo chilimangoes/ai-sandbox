@@ -12,6 +12,7 @@ From a workspace directory:
 - `ai-sandbox opencode`: run OpenCode in the sandbox
 - `ai-sandbox t3`: start T3 in the sandbox for the current terminal session
 - `ai-sandbox codenomad`: start CodeNomad in the sandbox for the current terminal session
+- `ai-sandbox paseo`: start the Paseo daemon in the sandbox for the current terminal session
 
 Maintenance:
 
@@ -24,6 +25,7 @@ Maintenance:
 - `ai-sandbox --rebuild`: rebuild the shared image and always remove and recreate the workspace container
 - `ai-sandbox --t3-port 3774`
 - `ai-sandbox --codenomad-port 9901`
+- `ai-sandbox --paseo-port 6768`
 
 ## Windows
 
@@ -77,3 +79,12 @@ Notes:
 - The shell banner prints the chosen URL for the current workspace sandbox.
 - The URL is not live in plain shell mode; run `ai-sandbox codenomad` before opening it in a browser.
 - CodeNomad runs inside the sandbox and uses the sandbox's `opencode` binary, config, auth, and workspace files.
+
+## Paseo access
+
+- Default host daemon address: `127.0.0.1:6767`
+- If that port is occupied, the launcher auto-selects the next free port unless `--paseo-port` is supplied.
+- The shell banner prints the chosen address for the current workspace sandbox.
+- Run `ai-sandbox paseo` to start the daemon in the foreground.
+- Use the Paseo CLI, app, or other clients to connect to that daemon.
+- Paseo runs inside the sandbox and orchestrates the sandbox's installed coding CLIs.

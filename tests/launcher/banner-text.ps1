@@ -31,4 +31,12 @@ if ($entrypoint -notmatch 'Run ai-sandbox codenomad to start CodeNomad\.') {
     throw "Expected docker/entrypoint.sh banner output to include a CodeNomad start hint."
 }
 
+if ($banner -notmatch 'paseo') {
+    throw "Expected banner.txt to mention paseo in the available commands list."
+}
+
+if ($entrypoint -notmatch 'Run ai-sandbox paseo to start Paseo\.') {
+    throw "Expected docker/entrypoint.sh banner output to include a Paseo start hint."
+}
+
 Write-Host "banner-text.ps1 passed"

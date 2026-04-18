@@ -11,6 +11,7 @@ mkdir -p \
   /state/config/copilot \
   /state/config/opencode \
   /state/config/codenomad \
+  /state/config/paseo \
   /state/config/t3 \
   /state/config/shared \
   /state/auth/codex \
@@ -25,6 +26,7 @@ mkdir -p \
   /state/data/codenomad \
   /state/data/codenomad/instances \
   /state/data/codenomad/tls \
+  /state/data/paseo \
   /state/data/t3 \
   /state/cache/npm \
   /state/cache/opencode
@@ -56,6 +58,15 @@ mkdir -p /home/sandbox/.config/codenomad
 ln -sfn /state/config/codenomad/config.json /home/sandbox/.config/codenomad/config.json
 ln -sfn /state/data/codenomad/instances /home/sandbox/.config/codenomad/instances
 ln -sfn /state/data/codenomad/tls /home/sandbox/.config/codenomad/tls
+
+rm -rf /home/sandbox/.paseo
+ln -sfn /state/data/paseo /home/sandbox/.paseo
+if [[ -f /state/config/paseo/config.json ]] && grep -q '"\$schema"' /state/config/paseo/config.json; then
+  tmp_paseo_config="$(mktemp)"
+  jq 'del(."$schema")' /state/config/paseo/config.json > "$tmp_paseo_config"
+  mv "$tmp_paseo_config" /state/config/paseo/config.json
+fi
+ln -sfn /state/config/paseo/config.json /state/data/paseo/config.json
 
 ln -sfn /state/config/t3/config.json /home/sandbox/.config/ai-sandbox-t3.json
 

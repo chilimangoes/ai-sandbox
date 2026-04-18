@@ -92,6 +92,13 @@ CodeNomad:
 - TLS material: `/state/data/codenomad/tls`
 - `~/.config/codenomad/` is wired into `/state` so CodeNomad server state survives container recreation
 
+Paseo:
+
+- default config: `/state/config/paseo/config.json`
+- runtime home: `/state/data/paseo`
+- `PASEO_HOME=/state/data/paseo`
+- `config.json` inside `PASEO_HOME` is symlinked back to `/state/config/paseo/config.json` so `reset-config` can restore defaults without wiping runtime state
+
 T3:
 
 - default config: `/state/config/t3/config.json`

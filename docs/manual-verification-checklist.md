@@ -8,7 +8,7 @@
 ## Container basics
 
 - `ai-sandbox` opens a shell in `/workspace/<project-folder-slug>`.
-- The shell banner shows the available commands, including `opencode` and `codenomad`, and the URLs reserved for `ai-sandbox t3` and `ai-sandbox codenomad`.
+- The shell banner shows the available commands, including `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, and `ai-sandbox paseo`.
 - Files created in `/workspace/<project-folder-slug>` appear on the host.
 
 ## Tool versions
@@ -34,6 +34,13 @@
 - The host browser can reach the printed CodeNomad URL.
 - CodeNomad can open the current workspace and use the sandbox's `opencode`.
 - `ai-sandbox --codenomad-port 9901 codenomad` honors the explicit port.
+
+## Paseo
+
+- `ai-sandbox paseo` starts a daemon bound to the selected host port.
+- Another Paseo client can connect to the printed daemon address.
+- Paseo can orchestrate the current workspace and use the sandbox's installed coding CLIs.
+- `ai-sandbox --paseo-port 6768 paseo` honors the explicit port.
 
 ## Reset semantics
 

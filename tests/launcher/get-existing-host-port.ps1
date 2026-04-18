@@ -9,6 +9,7 @@ $scriptText = Get-Content $scriptPath -Raw
 $bashLauncher = Get-Content (Join-Path $repoRoot "bin\ai-sandbox") -Raw
 $defaultPortMatch = [regex]::Match($scriptText, '\$DefaultT3ContainerPort = (\d+)')
 $defaultCodeNomadPortMatch = [regex]::Match($scriptText, '\$DefaultCodeNomadContainerPort = (\d+)')
+$defaultPaseoPortMatch = [regex]::Match($scriptText, '\$DefaultPaseoContainerPort = (\d+)')
 $functionMatch = [regex]::Match(
     $scriptText,
     'function Get-ExistingHostPort \{.*?^\}',
@@ -24,12 +25,20 @@ if (-not $defaultCodeNomadPortMatch.Success) {
     throw "Could not locate DefaultCodeNomadContainerPort in $scriptPath"
 }
 
+if (-not $defaultPaseoPortMatch.Success) {
+    throw "Could not locate DefaultPaseoContainerPort in $scriptPath"
+}
+
 if (-not $functionMatch.Success) {
     throw "Could not locate Get-ExistingHostPort in $scriptPath"
 }
 
 if ($bashLauncher -notmatch 'DEFAULT_T3_CONTAINER_PORT=3773') {
     throw "Expected bin/ai-sandbox to define DEFAULT_T3_CONTAINER_PORT."
+}
+
+if ($bashLauncher -notmatch 'DEFAULT_PASEO_CONTAINER_PORT=6767') {
+    throw "Expected bin/ai-sandbox to define DEFAULT_PASEO_CONTAINER_PORT."
 }
 
 $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-sandbox-test-" + [guid]::NewGuid().ToString("n"))
@@ -42,6 +51,7 @@ try {
     $setup = @"
 `$DefaultT3ContainerPort = $($defaultPortMatch.Groups[1].Value)
 `$DefaultCodeNomadContainerPort = $($defaultCodeNomadPortMatch.Groups[1].Value)
+`$DefaultPaseoContainerPort = $($defaultPaseoPortMatch.Groups[1].Value)
 $($functionMatch.Value)
 "@
 
@@ -80,6 +90,11 @@ if "%1"=="port" (
     echo [::]:9899
     exit /b 0
   )
+  if "%3"=="6767/tcp" (
+    echo 0.0.0.0:6767
+    echo [::]:6767
+    exit /b 0
+  )
   exit /b 0
 )
 echo unexpected docker invocation %*
@@ -90,6 +105,7 @@ exit /b 99
     try {
         $resolved = Get-ExistingHostPort -Name "ai-sandbox-test" -ContainerPort $DefaultT3ContainerPort
         $resolvedCodeNomad = Get-ExistingHostPort -Name "ai-sandbox-test" -ContainerPort $DefaultCodeNomadContainerPort
+        $resolvedPaseo = Get-ExistingHostPort -Name "ai-sandbox-test" -ContainerPort $DefaultPaseoContainerPort
     } finally {
         $env:Path = $originalPath
     }
@@ -100,6 +116,10 @@ exit /b 99
 
     if ($resolvedCodeNomad -ne 9899) {
         throw "Expected Get-ExistingHostPort to return 9899, got: $resolvedCodeNomad"
+    }
+
+    if ($resolvedPaseo -ne 6767) {
+        throw "Expected Get-ExistingHostPort to return 6767, got: $resolvedPaseo"
     }
 
     Write-Host "get-existing-host-port.ps1 passed"

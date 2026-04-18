@@ -7,6 +7,9 @@ HOST_T3_URL="${AI_SANDBOX_T3_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_T3_PORT:-$C
 DEFAULT_CODENOMAD_PORT="${AI_SANDBOX_DEFAULT_CODENOMAD_PORT:-9899}"
 CONTAINER_CODENOMAD_PORT="${AI_SANDBOX_CODENOMAD_PORT:-$DEFAULT_CODENOMAD_PORT}"
 HOST_CODENOMAD_URL="${AI_SANDBOX_CODENOMAD_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_CODENOMAD_PORT:-$CONTAINER_CODENOMAD_PORT}}"
+DEFAULT_PASEO_PORT="${AI_SANDBOX_DEFAULT_PASEO_PORT:-6767}"
+CONTAINER_PASEO_PORT="${AI_SANDBOX_PASEO_PORT:-$DEFAULT_PASEO_PORT}"
+HOST_PASEO_ADDRESS="${AI_SANDBOX_PASEO_ADDRESS:-127.0.0.1:${AI_SANDBOX_HOST_PASEO_PORT:-$CONTAINER_PASEO_PORT}}"
 WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
 
 ensure_runtime_user() {
@@ -36,7 +39,7 @@ ensure_runtime_user() {
 
 run_as_sandbox() {
   local command="$1"
-  exec runuser -u sandbox -- /bin/bash -lc "export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
+  exec runuser -u sandbox -- /bin/bash -lc "export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_PASEO_ADDRESS='$HOST_PASEO_ADDRESS'; export AI_SANDBOX_PASEO_PORT='$CONTAINER_PASEO_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
 }
 
 ensure_runtime_user
@@ -86,13 +89,24 @@ rewrite_codenomad_output() {
   done
 }
 
+rewrite_paseo_output() {
+  while IFS= read -r line; do
+    if [[ "$line" == *"127.0.0.1:${CONTAINER_PASEO_PORT}"* ]]; then
+      echo "${line//127.0.0.1:${CONTAINER_PASEO_PORT}/$HOST_PASEO_ADDRESS}"
+    elif [[ "$line" == *"0.0.0.0:${CONTAINER_PASEO_PORT}"* ]]; then
+      echo "${line//0.0.0.0:${CONTAINER_PASEO_PORT}/$HOST_PASEO_ADDRESS}"
+    else
+      echo "$line"
+    fi
+  done
+}
+
 print_banner() {
   printf '\n'
   cat /opt/ai-sandbox/defaults/configs/shared/banner.txt
   printf '\nT3 URL (after `ai-sandbox t3`): %s\n' "$HOST_T3_URL"
   printf 'CodeNomad URL (after `ai-sandbox codenomad`): %s\n' "$HOST_CODENOMAD_URL"
-  printf 'Run ai-sandbox t3 to start T3.\n\n'
-  printf 'Run ai-sandbox codenomad to start CodeNomad.\n\n'
+  printf 'Paseo Address (after `ai-sandbox paseo`): %s\n' "$HOST_PASEO_ADDRESS"
 }
 
 reset_config() {
@@ -106,6 +120,7 @@ run_doctor() {
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
   echo "opencode: $(opencode --version 2>/dev/null || echo unavailable)"
   echo "codenomad: $(codenomad --version 2>/dev/null || echo unavailable)"
+  echo "paseo: $(paseo --version 2>/dev/null || echo unavailable)"
   echo "node: $(node --version 2>/dev/null || echo unavailable)"
   echo "npm: $(npm --version 2>/dev/null || echo unavailable)"
   echo "t3: $(t3 --help >/dev/null 2>&1 && echo available || echo unavailable)"
@@ -119,6 +134,11 @@ run_t3() {
 run_codenomad() {
   echo "Starting CodeNomad on $HOST_CODENOMAD_URL"
   run_as_sandbox "$(declare -f rewrite_codenomad_output); export CLI_HTTP=true; export CLI_HTTPS=false; export CLI_HOST=0.0.0.0; export CLI_HTTP_PORT='$CONTAINER_CODENOMAD_PORT'; export CLI_WORKSPACE_ROOT='$WORKSPACE_PATH'; export CODENOMAD_SKIP_AUTH=true; codenomad --http=true --https=false --host 0.0.0.0 --http-port '$CONTAINER_CODENOMAD_PORT' --workspace-root '$WORKSPACE_PATH' --dangerously-skip-auth 2>&1 | rewrite_codenomad_output"
+}
+
+run_paseo() {
+  echo "Starting Paseo on $HOST_PASEO_ADDRESS"
+  run_as_sandbox "$(declare -f rewrite_paseo_output); export PASEO_HOME=/state/data/paseo; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground 2>&1 | rewrite_paseo_output"
 }
 
 dispatch() {
@@ -147,6 +167,9 @@ dispatch() {
       ;;
     codenomad)
       run_codenomad "$@"
+      ;;
+    paseo)
+      run_paseo "$@"
       ;;
     t3)
       run_t3 "$@"

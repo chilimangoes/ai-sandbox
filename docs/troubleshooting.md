@@ -22,6 +22,12 @@
 - Without an explicit override, the launcher will probe upward from `9899`.
 - If the workspace container already exists with a different published CodeNomad port, the launcher recreates the container so the requested mapping can take effect.
 
+## Paseo port conflict
+
+- Run `ai-sandbox --paseo-port 6768 paseo`.
+- Without an explicit override, the launcher will probe upward from `6767`.
+- If the workspace container already exists with a different published Paseo port, the launcher recreates the container so the requested mapping can take effect.
+
 ## Config changes were overwritten
 
 - Normal startup does not overwrite persisted config.
@@ -44,3 +50,10 @@
 - Run `ai-sandbox doctor` and confirm `codenomad` and `opencode` both report versions inside the sandbox.
 - Verify `opencode` is authenticated inside the sandbox before expecting CodeNomad to open working sessions.
 - If a future CodeNomad release changes its auth bootstrap requirements, revisit the launcher flags around `--dangerously-skip-auth` for loopback-only sandbox use.
+
+## Paseo does not start
+
+- Verify the image has been rebuilt after adding Paseo support.
+- Run `ai-sandbox doctor` and confirm `paseo` reports a version inside the sandbox.
+- Verify the provider CLIs that Paseo should manage, such as `codex` and `opencode`, are installed and authenticated inside the sandbox.
+- If direct local connectivity fails, verify the daemon address and the `daemon.allowedHosts` configuration under `PASEO_HOME/config.json`.

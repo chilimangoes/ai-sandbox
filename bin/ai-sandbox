@@ -8,9 +8,11 @@ DEFAULT_T3_CONTAINER_PORT=3773
 DEFAULT_T3_HOST_PORT=3773
 DEFAULT_CODENOMAD_CONTAINER_PORT=9899
 DEFAULT_CODENOMAD_HOST_PORT=9899
+DEFAULT_PASEO_CONTAINER_PORT=6767
+DEFAULT_PASEO_HOST_PORT=6767
 
 usage() {
-  echo "Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [--codenomad-port <port>] [shell|codex|gemini|copilot|opencode|t3|codenomad|doctor|stop|rm|reset-config|reset-state]"
+  echo "Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [--codenomad-port <port>] [--paseo-port <port>] [shell|codex|gemini|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
 }
 
 assert_docker() {
@@ -102,6 +104,7 @@ existing_host_port() {
 ensure_container() {
   local t3_host_port="$1"
   local codenomad_host_port="$2"
+  local paseo_host_port="$3"
 
   local current_image_id
   current_image_id="$(image_id "$IMAGE_TAG")"
@@ -115,6 +118,8 @@ ensure_container() {
     current_t3_host_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
     local current_codenomad_port
     current_codenomad_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_CODENOMAD_CONTAINER_PORT")"
+    local current_paseo_port
+    current_paseo_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_PASEO_CONTAINER_PORT")"
     if [[ "$FORCE_RECREATE" == "true" || "$running_image_id" != "$current_image_id" ]]; then
       recreate_needed="true"
     fi
@@ -122,6 +127,9 @@ ensure_container() {
       recreate_needed="true"
     fi
     if [[ -n "$current_codenomad_port" && "$current_codenomad_port" != "$codenomad_host_port" ]]; then
+      recreate_needed="true"
+    fi
+    if [[ -n "$current_paseo_port" && "$current_paseo_port" != "$paseo_host_port" ]]; then
       recreate_needed="true"
     fi
     if [[ "$recreate_needed" == "true" ]]; then
@@ -137,6 +145,7 @@ ensure_container() {
   if ! container_exists "$CONTAINER_NAME"; then
     local attempt_t3_host_port="$t3_host_port"
     local attempt_codenomad_host_port="$codenomad_host_port"
+    local attempt_paseo_host_port="$paseo_host_port"
     local attempt error_message
     for ((attempt=0; attempt<5; attempt++)); do
       if error_message="$(
@@ -146,12 +155,16 @@ ensure_container() {
           --label "ai-sandbox.hash=${WORKSPACE_HASH}" \
           -p "127.0.0.1:${attempt_t3_host_port}:${DEFAULT_T3_CONTAINER_PORT}" \
           -p "127.0.0.1:${attempt_codenomad_host_port}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
+          -p "127.0.0.1:${attempt_paseo_host_port}:${DEFAULT_PASEO_CONTAINER_PORT}" \
           -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
           -e "AI_SANDBOX_HOST_T3_PORT=${attempt_t3_host_port}" \
           -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${attempt_t3_host_port}" \
           -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
           -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${attempt_codenomad_host_port}" \
           -e "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:${attempt_codenomad_host_port}" \
+          -e "AI_SANDBOX_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
+          -e "AI_SANDBOX_HOST_PASEO_PORT=${attempt_paseo_host_port}" \
+          -e "AI_SANDBOX_PASEO_ADDRESS=127.0.0.1:${attempt_paseo_host_port}" \
           -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
           -e "LOCAL_UID=$(id -u)" \
           -e "LOCAL_GID=$(id -g)" \
@@ -165,6 +178,7 @@ ensure_container() {
       )"; then
         SELECTED_T3_HOST_PORT="$attempt_t3_host_port"
         SELECTED_CODENOMAD_HOST_PORT="$attempt_codenomad_host_port"
+        SELECTED_PASEO_HOST_PORT="$attempt_paseo_host_port"
         break
       fi
 
@@ -172,6 +186,7 @@ ensure_container() {
       if [[ "$error_message" == *"port is already allocated"* ]]; then
         attempt_t3_host_port="$(free_port "$((attempt_t3_host_port + 1))")"
         attempt_codenomad_host_port="$(free_port "$((attempt_codenomad_host_port + 1))")"
+        attempt_paseo_host_port="$(free_port "$((attempt_paseo_host_port + 1))")"
         continue
       fi
 
@@ -199,6 +214,9 @@ exec_in_container() {
       -e "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:${SELECTED_CODENOMAD_HOST_PORT}" \
       -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${SELECTED_CODENOMAD_HOST_PORT}" \
       -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_PASEO_ADDRESS=127.0.0.1:${SELECTED_PASEO_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_PASEO_PORT=${SELECTED_PASEO_HOST_PORT}" \
+      -e "AI_SANDBOX_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
       -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
@@ -210,6 +228,9 @@ exec_in_container() {
       -e "AI_SANDBOX_CODENOMAD_URL=http://127.0.0.1:${SELECTED_CODENOMAD_HOST_PORT}" \
       -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${SELECTED_CODENOMAD_HOST_PORT}" \
       -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_PASEO_ADDRESS=127.0.0.1:${SELECTED_PASEO_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_PASEO_PORT=${SELECTED_PASEO_HOST_PORT}" \
+      -e "AI_SANDBOX_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
       -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
@@ -221,6 +242,7 @@ REBUILD="false"
 FORCE_RECREATE="false"
 EXPLICIT_T3_PORT=""
 EXPLICIT_CODENOMAD_PORT=""
+EXPLICIT_PASEO_PORT=""
 POSITIONALS=()
 
 while [[ $# -gt 0 ]]; do
@@ -244,6 +266,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --codenomad-port)
       EXPLICIT_CODENOMAD_PORT="$2"
+      shift 2
+      ;;
+    --paseo-port)
+      EXPLICIT_PASEO_PORT="$2"
       shift 2
       ;;
     *)
@@ -295,9 +321,11 @@ fi
 if container_exists "$CONTAINER_NAME"; then
   EXISTING_T3_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
   EXISTING_CODENOMAD_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_CODENOMAD_CONTAINER_PORT")"
+  EXISTING_PASEO_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_PASEO_CONTAINER_PORT")"
 else
   EXISTING_T3_PORT=""
   EXISTING_CODENOMAD_PORT=""
+  EXISTING_PASEO_PORT=""
 fi
 
 if [[ -n "$EXPLICIT_T3_PORT" ]]; then
@@ -316,7 +344,15 @@ else
   SELECTED_CODENOMAD_HOST_PORT="$(free_port "$DEFAULT_CODENOMAD_HOST_PORT")"
 fi
 
-ensure_container "$SELECTED_T3_HOST_PORT" "$SELECTED_CODENOMAD_HOST_PORT"
+if [[ -n "$EXPLICIT_PASEO_PORT" ]]; then
+  SELECTED_PASEO_HOST_PORT="$EXPLICIT_PASEO_PORT"
+elif [[ -n "$EXISTING_PASEO_PORT" ]]; then
+  SELECTED_PASEO_HOST_PORT="$EXISTING_PASEO_PORT"
+else
+  SELECTED_PASEO_HOST_PORT="$(free_port "$DEFAULT_PASEO_HOST_PORT")"
+fi
+
+ensure_container "$SELECTED_T3_HOST_PORT" "$SELECTED_CODENOMAD_HOST_PORT" "$SELECTED_PASEO_HOST_PORT"
 
 case "$COMMAND" in
   reset-config)

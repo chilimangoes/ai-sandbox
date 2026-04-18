@@ -1,3 +1,5 @@
-Available commands: codex, gemini, copilot, opencode, t3, codenomad
+Available commands: codex, gemini, copilot, opencode, t3, codenomad, paseo
 Run ai-sandbox t3 to start T3.
 Run ai-sandbox codenomad to start CodeNomad.
+Run ai-sandbox paseo to start Paseo.
+
