@@ -472,7 +472,8 @@ switch ($command) {
     }
     default {
         $invokeCommand = if ($command -eq "shell") { @("shell") } else { @($command) + $commandArgs }
-        Exec-InContainer -Meta $meta -CommandArgs $invokeCommand -Interactive
+        $nonInteractiveCommands = @("t3", "codenomad", "paseo")
+        Exec-InContainer -Meta $meta -CommandArgs $invokeCommand -Interactive:($command -notin $nonInteractiveCommands)
         break
     }
 }

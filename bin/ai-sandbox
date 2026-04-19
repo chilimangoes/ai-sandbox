@@ -361,6 +361,9 @@ case "$COMMAND" in
   doctor)
     exec_in_container false doctor
     ;;
+  t3|codenomad|paseo)
+    exec_in_container false "$COMMAND" "${COMMAND_ARGS[@]}"
+    ;;
   shell)
     exec_in_container true shell
     ;;
