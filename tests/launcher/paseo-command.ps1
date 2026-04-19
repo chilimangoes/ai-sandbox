@@ -17,4 +17,12 @@ if ($entrypoint -notmatch 'paseo daemon start .*--foreground') {
     throw "Expected docker/entrypoint.sh to launch Paseo in foreground mode."
 }
 
+if ($entrypoint -notmatch 'PASEO_RELAY_FLAG') {
+    throw "Expected docker/entrypoint.sh to use a config-driven Paseo relay flag."
+}
+
+if ($entrypoint -notmatch 'trap cleanup_paseo_daemon INT TERM EXIT') {
+    throw "Expected docker/entrypoint.sh to clean up Paseo on interrupt and exit."
+}
+
 Write-Host "paseo-command.ps1 passed"

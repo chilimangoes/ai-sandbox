@@ -1,12 +1,12 @@
 # Architecture
 
-## Locked v1 decisions
+## High-level behavior decisions
 
 - `ai-sandbox` opens an interactive shell by default.
 - Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, and `paseo`, plus the selected host T3, CodeNomad, and Paseo addresses to use after their service commands start.
 - `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
 - `ai-sandbox codenomad` runs CodeNomad in the foreground for the current session. Closing the terminal stops it.
-- `ai-sandbox paseo` runs the Paseo daemon in the foreground for the current session. Closing the terminal stops it.
+- `ai-sandbox paseo` runs the Paseo daemon in the foreground for the current session. Closing the terminal stops the daemon.
 - Tool auth is created and stored only inside Docker volumes.
 - Image refreshes only happen when the image is missing or the user passes `--update` or `--rebuild`.
 - Docker is the only supported runtime. Podman is intentionally out of scope.
@@ -46,6 +46,8 @@ Runtime filesystem layout:
 CodeNomad runs inside the same container as `opencode`, so the browser only crosses the Docker boundary to reach the UI. All OpenCode execution, file access, and auth stay inside the sandbox.
 
 Paseo also runs inside the same container, but it exposes a daemon endpoint rather than a standalone local UI. Clients connect to the daemon while all agent execution, file access, and credentials remain inside the sandbox.
+
+Paseo relay connectivity is disabled by default. The launcher reads `/state/config/shared/sandbox.config`; only `paseo_relay=1` opts into running the daemon without `--no-relay`.
 
 The entrypoint performs idempotent bootstrap on every start:
 
@@ -117,6 +119,7 @@ Maintenance commands:
 - The chosen address is surfaced in shell startup output and when Paseo launches.
 - Shell mode reserves and prints the address, but only `ai-sandbox paseo` starts the Paseo daemon.
 - The workspace container publishes T3, CodeNomad, and Paseo service ports at creation time because Docker port mappings cannot be added later without recreating the container.
+- `ai-sandbox paseo` passes `--no-relay` by default. To enable the relay, set `paseo_relay=1` in `/state/config/shared/sandbox.config` inside the container's persistent config state.
 
 ## Image design
 

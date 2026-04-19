@@ -8,7 +8,7 @@
 - shell startup prints a short banner with `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, and `paseo`, plus the selected T3, CodeNomad, and Paseo addresses
 - `ai-sandbox t3` starts T3 for the current terminal session; ending the session stops T3
 - `ai-sandbox codenomad` starts CodeNomad server/web mode for the current terminal session; ending the session stops CodeNomad
-- `ai-sandbox paseo` starts the Paseo daemon for the current terminal session; ending the session stops Paseo
+- `ai-sandbox paseo` starts the Paseo daemon for the current terminal session; ending the session stops Paseo; public relay connectivity is disabled by default
 - auth persists only inside Docker volumes owned by the sandbox
 - updates happen only through explicit `--update` or `--rebuild`
 

@@ -45,6 +45,7 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 - Paseo config defaults live under `/state/config/paseo/config.json`.
 - Paseo runtime state persists under `/state/data/paseo`.
 - The launcher sets `PASEO_HOME=/state/data/paseo` for the daemon.
+- The launcher disables Paseo's public relay by default with `--no-relay`; set `paseo_relay=1` in `/state/config/shared/sandbox.config` only if you explicitly want relay-backed clients.
 
 ## T3
 

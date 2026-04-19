@@ -57,3 +57,14 @@
 - Run `ai-sandbox doctor` and confirm `paseo` reports a version inside the sandbox.
 - Verify the provider CLIs that Paseo should manage, such as `codex` and `opencode`, are installed and authenticated inside the sandbox.
 - If direct local connectivity fails, verify the daemon address and the `daemon.allowedHosts` configuration under `PASEO_HOME/config.json`.
+- If Paseo reports another daemon already running after an interrupted session, rerun `ai-sandbox paseo`; the launcher now stops leftover daemon state and removes stale PID files before starting.
+
+## Paseo relay is unavailable
+
+- This is expected by default: `ai-sandbox paseo` passes `--no-relay` unless the shared sandbox config opts in.
+- To enable relay pairing, edit `/state/config/shared/sandbox.config` inside the sandbox and set `paseo_relay=1`, then restart `ai-sandbox paseo`.
+- Run `ai-sandbox reset-config` to restore the default `paseo_relay=0`.
+
+## Paseo local speech model warnings
+
+- The initial warnings about missing local STT/TTS models are expected before the first successful model download.

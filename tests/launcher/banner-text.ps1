@@ -11,8 +11,8 @@ if ($banner -notmatch 'Run ai-sandbox t3 to start T3\.') {
     throw "Expected banner.txt to tell users to run ai-sandbox t3 before opening the T3 URL."
 }
 
-if ($entrypoint -notmatch 'Run ai-sandbox t3 to start T3\.') {
-    throw "Expected docker/entrypoint.sh banner output to include a T3 start hint."
+if ($entrypoint -notmatch 'banner\.txt') {
+    throw "Expected docker/entrypoint.sh banner output to include the shared banner text."
 }
 
 if ($banner -notmatch 'opencode') {
@@ -27,16 +27,16 @@ if ($banner -notmatch 'codenomad') {
     throw "Expected banner.txt to mention codenomad in the available commands list."
 }
 
-if ($entrypoint -notmatch 'Run ai-sandbox codenomad to start CodeNomad\.') {
-    throw "Expected docker/entrypoint.sh banner output to include a CodeNomad start hint."
+if ($entrypoint -notmatch 'banner\.txt') {
+    throw "Expected docker/entrypoint.sh banner output to include the shared banner text."
 }
 
 if ($banner -notmatch 'paseo') {
     throw "Expected banner.txt to mention paseo in the available commands list."
 }
 
-if ($entrypoint -notmatch 'Run ai-sandbox paseo to start Paseo\.') {
-    throw "Expected docker/entrypoint.sh banner output to include a Paseo start hint."
+if ($entrypoint -notmatch 'banner\.txt') {
+    throw "Expected docker/entrypoint.sh banner output to include the shared banner text."
 }
 
 Write-Host "banner-text.ps1 passed"

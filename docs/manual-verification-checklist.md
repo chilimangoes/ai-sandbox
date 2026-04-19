@@ -41,6 +41,7 @@
 - Another Paseo client can connect to the printed daemon address.
 - Paseo can orchestrate the current workspace and use the sandbox's installed coding CLIs.
 - `ai-sandbox --paseo-port 6768 paseo` honors the explicit port.
+- Default Paseo startup disables relay; setting `paseo_relay=1` in `/state/config/shared/sandbox.config` opts into relay pairing.
 
 ## Reset semantics
 

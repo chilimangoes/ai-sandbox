@@ -4,6 +4,8 @@
 
 Repo-managed defaults live under `configs/` and are copied into the image at build time. They are not bind-mounted from the host.
 
+You can change the defaults by editing them here in this repo. To change the configuration for an existing sandbox, edit the desired config file in the container's `/state/config/` folder. An easy way to edit files within sandbox container volumes (or other Docker volumes for that matter) is to connect to the container using the "Container Tools" extension in VS Code.
+
 ## State classes
 
 Three state classes matter in v1:
@@ -91,6 +93,11 @@ CodeNomad:
 - runtime data: `/state/data/codenomad/instances`
 - TLS material: `/state/data/codenomad/tls`
 - `~/.config/codenomad/` is wired into `/state` so CodeNomad server state survives container recreation
+
+Shared sandbox config:
+
+- default config: `/state/config/shared/sandbox.config`
+- `paseo_relay=0` is the default and makes `ai-sandbox paseo` pass `--no-relay`; set `paseo_relay=1` to opt into Paseo's public relay; any other value keeps relay disabled
 
 Paseo:
 

@@ -11,6 +11,7 @@ DEFAULT_PASEO_PORT="${AI_SANDBOX_DEFAULT_PASEO_PORT:-6767}"
 CONTAINER_PASEO_PORT="${AI_SANDBOX_PASEO_PORT:-$DEFAULT_PASEO_PORT}"
 HOST_PASEO_ADDRESS="${AI_SANDBOX_PASEO_ADDRESS:-127.0.0.1:${AI_SANDBOX_HOST_PASEO_PORT:-$CONTAINER_PASEO_PORT}}"
 WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
+SANDBOX_CONFIG_PATH="/state/config/shared/sandbox.config"
 
 ensure_runtime_user() {
   local target_uid="${LOCAL_UID:-1000}"
@@ -136,9 +137,31 @@ run_codenomad() {
   run_as_sandbox "$(declare -f rewrite_codenomad_output); export CLI_HTTP=true; export CLI_HTTPS=false; export CLI_HOST=0.0.0.0; export CLI_HTTP_PORT='$CONTAINER_CODENOMAD_PORT'; export CLI_WORKSPACE_ROOT='$WORKSPACE_PATH'; export CODENOMAD_SKIP_AUTH=true; codenomad --http=true --https=false --host 0.0.0.0 --http-port '$CONTAINER_CODENOMAD_PORT' --workspace-root '$WORKSPACE_PATH' --dangerously-skip-auth 2>&1 | rewrite_codenomad_output"
 }
 
+get_paseo_relay_flag() {
+  local paseo_relay=""
+
+  if [[ -f "$SANDBOX_CONFIG_PATH" ]]; then
+    paseo_relay="$(grep -E '^[[:space:]]*paseo_relay=' "$SANDBOX_CONFIG_PATH" | tail -n 1 | cut -d= -f2- | tr -d '[:space:]')"
+  fi
+
+  if [[ "$paseo_relay" == "1" ]]; then
+    printf ''
+  else
+    printf '%s' '--no-relay'
+  fi
+}
+
+cleanup_paseo_daemon() {
+  paseo daemon stop --home /state/data/paseo --force >/dev/null 2>&1 || true
+  rm -f /state/data/paseo/paseo.pid
+}
+
 run_paseo() {
+  local PASEO_RELAY_FLAG
+  PASEO_RELAY_FLAG="$(get_paseo_relay_flag)"
+
   echo "Starting Paseo on $HOST_PASEO_ADDRESS"
-  run_as_sandbox "$(declare -f rewrite_paseo_output); export PASEO_HOME=/state/data/paseo; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground 2>&1 | rewrite_paseo_output"
+  run_as_sandbox "$(declare -f rewrite_paseo_output cleanup_paseo_daemon); trap cleanup_paseo_daemon INT TERM EXIT; cleanup_paseo_daemon; export PASEO_HOME=/state/data/paseo; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground $PASEO_RELAY_FLAG > >(rewrite_paseo_output) 2>&1 & paseo_pid=\$!; wait \"\$paseo_pid\""
 }
 
 dispatch() {

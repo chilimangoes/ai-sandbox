@@ -13,6 +13,7 @@ RUN apt-get update \
         git \
         jq \
         less \
+        lbzip2 \
         make \
         passwd \
         procps \
