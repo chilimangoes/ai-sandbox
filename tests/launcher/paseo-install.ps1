@@ -20,4 +20,9 @@ if ($paseoConfig -match '"\$schema"') {
     throw "Expected configs/paseo/config.json to omit the unsupported `$schema key for the installed Paseo CLI."
 }
 
+$paseoConfigJson = $paseoConfig | ConvertFrom-Json
+if ($paseoConfigJson.daemon.cors.allowedOrigins -notcontains "https://app.paseo.sh") {
+    throw "Expected configs/paseo/config.json to allow the hosted Paseo web app origin."
+}
+
 Write-Host "paseo-install.ps1 passed"

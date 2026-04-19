@@ -156,12 +156,158 @@ cleanup_paseo_daemon() {
   rm -f /state/data/paseo/paseo.pid
 }
 
+ensure_paseo_workspace_registry() {
+  node <<'NODE'
+const { randomUUID } = require("node:crypto");
+const { execFileSync } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const paseoHome = process.env.PASEO_HOME || "/state/data/paseo";
+const workspacePath = path.resolve(process.env.AI_SANDBOX_WORKSPACE_PATH || process.cwd());
+const projectsDir = path.join(paseoHome, "projects");
+const projectsPath = path.join(projectsDir, "projects.json");
+const workspacesPath = path.join(projectsDir, "workspaces.json");
+
+function runGit(args) {
+  try {
+    return execFileSync("git", ["-C", workspacePath, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function deriveRemoteProjectKey(remoteUrl) {
+  if (!remoteUrl || !remoteUrl.trim()) {
+    return null;
+  }
+
+  const trimmed = remoteUrl.trim();
+  let host = null;
+  let remotePath = null;
+  const scpLike = trimmed.match(/^[^@]+@([^:]+):(.+)$/);
+
+  if (scpLike) {
+    host = scpLike[1] || null;
+    remotePath = scpLike[2] || null;
+  } else if (trimmed.includes("://")) {
+    try {
+      const parsed = new URL(trimmed);
+      host = parsed.hostname || null;
+      remotePath = parsed.pathname ? parsed.pathname.replace(/^\/+/, "") : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!host || !remotePath) {
+    return null;
+  }
+
+  let cleanedPath = remotePath.trim().replace(/^\/+/, "").replace(/\/+$/, "");
+  if (cleanedPath.endsWith(".git")) {
+    cleanedPath = cleanedPath.slice(0, -4);
+  }
+  if (!cleanedPath.includes("/")) {
+    return null;
+  }
+
+  const cleanedHost = host.toLowerCase();
+  if (cleanedHost === "github.com") {
+    return `remote:github.com/${cleanedPath}`;
+  }
+  return `remote:${cleanedHost}/${cleanedPath}`;
+}
+
+function displayNameForProject(projectId) {
+  const githubPrefix = "remote:github.com/";
+  if (projectId.startsWith(githubPrefix)) {
+    return projectId.slice(githubPrefix.length) || projectId;
+  }
+  return path.basename(projectId) || projectId;
+}
+
+function readRecords(filePath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function upsertRecord(records, idKey, record) {
+  const index = records.findIndex((entry) => entry && entry[idKey] === record[idKey]);
+  if (index === -1) {
+    records.push(record);
+    return;
+  }
+  records[index] = {
+    ...records[index],
+    ...record,
+    createdAt: records[index].createdAt || record.createdAt,
+    archivedAt: null,
+  };
+}
+
+function writeRecords(filePath, records) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
+  fs.writeFileSync(tempPath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
+  fs.renameSync(tempPath, filePath);
+}
+
+const isGit = runGit(["rev-parse", "--is-inside-work-tree"]) === "true";
+const gitRoot = isGit ? runGit(["rev-parse", "--show-toplevel"]) : null;
+const workspaceId = path.resolve(gitRoot || workspacePath);
+const currentBranch = isGit ? runGit(["branch", "--show-current"]) : null;
+const remoteUrl = isGit ? runGit(["config", "--get", "remote.origin.url"]) : null;
+const projectId = deriveRemoteProjectKey(remoteUrl) || workspaceId;
+const now = new Date().toISOString();
+const workspaceDisplayName =
+  currentBranch && currentBranch.toUpperCase() !== "HEAD"
+    ? currentBranch
+    : path.basename(workspaceId) || workspaceId;
+
+const projectRecord = {
+  projectId,
+  rootPath: workspaceId,
+  kind: isGit ? "git" : "non_git",
+  displayName: displayNameForProject(projectId),
+  createdAt: now,
+  updatedAt: now,
+  archivedAt: null,
+};
+
+const workspaceRecord = {
+  workspaceId,
+  projectId,
+  cwd: workspaceId,
+  kind: isGit ? "local_checkout" : "directory",
+  displayName: workspaceDisplayName,
+  createdAt: now,
+  updatedAt: now,
+  archivedAt: null,
+};
+
+const projects = readRecords(projectsPath);
+const workspaces = readRecords(workspacesPath);
+upsertRecord(projects, "projectId", projectRecord);
+upsertRecord(workspaces, "workspaceId", workspaceRecord);
+writeRecords(projectsPath, projects);
+writeRecords(workspacesPath, workspaces);
+NODE
+}
+
 run_paseo() {
   local PASEO_RELAY_FLAG
   PASEO_RELAY_FLAG="$(get_paseo_relay_flag)"
 
   echo "Starting Paseo on $HOST_PASEO_ADDRESS"
-  run_as_sandbox "$(declare -f rewrite_paseo_output cleanup_paseo_daemon); trap cleanup_paseo_daemon INT TERM EXIT; cleanup_paseo_daemon; export PASEO_HOME=/state/data/paseo; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground $PASEO_RELAY_FLAG > >(rewrite_paseo_output) 2>&1 & paseo_pid=\$!; wait \"\$paseo_pid\""
+  run_as_sandbox "$(declare -f rewrite_paseo_output cleanup_paseo_daemon ensure_paseo_workspace_registry); trap cleanup_paseo_daemon INT TERM EXIT; cleanup_paseo_daemon; export PASEO_HOME=/state/data/paseo; ensure_paseo_workspace_registry; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground $PASEO_RELAY_FLAG > >(rewrite_paseo_output) 2>&1 & paseo_pid=\$!; wait \"\$paseo_pid\""
 }
 
 dispatch() {

@@ -6,6 +6,11 @@
       "127.0.0.1",
       "localhost",
       ".localhost"
-    ]
+    ],
+    "cors": {
+      "allowedOrigins": [
+        "https://app.paseo.sh"
+      ]
+    }
   }
 }

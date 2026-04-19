@@ -67,7 +67,7 @@ function Get-WorkspaceMeta {
 function Get-FreePort {
     param([int]$StartPort)
     for ($port = $StartPort; $port -lt ($StartPort + 100); $port++) {
-        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $port)
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse("127.0.0.1"), $port)
         try {
             $listener.Start()
             $listener.Stop()
@@ -319,7 +319,7 @@ function Ensure-Container {
                 break
             } catch {
                 Remove-ContainerIfExists -Name $Meta.Container
-                if ($_.Exception.Message -match 'port is already allocated') {
+                if ($_.Exception.Message -match 'port is already allocated|ports are not available|Only one usage of each socket address') {
                     $attemptT3Port = Get-FreePort -StartPort ($attemptT3Port + 1)
                     $attemptCodeNomadPort = Get-FreePort -StartPort ($attemptCodeNomadPort + 1)
                     $attemptPaseoPort = Get-FreePort -StartPort ($attemptPaseoPort + 1)

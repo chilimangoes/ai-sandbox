@@ -15,4 +15,12 @@ if ($psLauncher.Contains("port is already allocated' -and -not $ForceRecreate"))
     throw "Expected bin/ai-sandbox.ps1 to retry on port conflicts even during --rebuild."
 }
 
+if ($psLauncher -notmatch 'ports are not available') {
+    throw "Expected bin/ai-sandbox.ps1 to retry on Docker's Windows port conflict message."
+}
+
+if ($psLauncher -notmatch 'IPAddress\]::Parse\("127\.0\.0\.1"\)') {
+    throw "Expected bin/ai-sandbox.ps1 to probe the same loopback address used by Docker port publishing."
+}
+
 Write-Host "port-conflict-retry.ps1 passed"

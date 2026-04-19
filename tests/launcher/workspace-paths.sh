@@ -8,6 +8,6 @@ entrypoint="$repo_root/docker/entrypoint.sh"
 grep -Eq '\-v "\$\{WORKSPACE_PATH\}:\$\{CONTAINER_WORKSPACE_PATH\}"' "$launcher"
 grep -Eq 'AI_SANDBOX_WORKSPACE_PATH=\$\{CONTAINER_WORKSPACE_PATH\}' "$launcher"
 grep -Eq 'WORKSPACE_PATH="\$\{AI_SANDBOX_WORKSPACE_PATH:-/workspace\}"' "$entrypoint"
-grep -Eq "cd '\$WORKSPACE_PATH'" "$entrypoint"
+grep -Fq "cd '\$WORKSPACE_PATH'" "$entrypoint"
 
 echo "workspace-paths.sh passed"
