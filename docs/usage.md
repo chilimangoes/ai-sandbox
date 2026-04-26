@@ -90,3 +90,10 @@ Notes:
 - Paseo runs inside the sandbox and orchestrates the sandbox's installed coding CLIs.
 - The sandbox starts Paseo with `--no-relay` by default so daemon traffic stays local to the host/container boundary.
 - To opt into Paseo's public relay, edit `/state/config/shared/sandbox.config` inside the sandbox and set `paseo_relay=1`; any other value keeps `--no-relay` enabled.
+
+## Published web ports
+
+- Container port `80` is always published on `127.0.0.1`, starting from host port `58080`.
+- Container port `8080` is always published on `127.0.0.1`, starting from host port `58880`.
+- If either preferred host port is occupied, the launcher auto-selects the next free port.
+- The shell banner prints both selected host-visible URLs for the current workspace sandbox.

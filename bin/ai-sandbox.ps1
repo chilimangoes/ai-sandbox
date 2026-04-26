@@ -15,6 +15,10 @@ $DefaultCodeNomadContainerPort = 9899
 $DefaultCodeNomadHostPort = 9899
 $DefaultPaseoContainerPort = 6767
 $DefaultPaseoHostPort = 6767
+$DefaultHttpContainerPort = 80
+$DefaultHttpHostPort = 58080
+$DefaultAltHttpContainerPort = 8080
+$DefaultAltHttpHostPort = 58880
 
 function Write-Usage {
     @"
@@ -86,7 +90,9 @@ function Start-Container {
         [pscustomobject]$Meta,
         [int]$T3HostPort,
         [int]$CodeNomadHostPort,
-        [int]$PaseoHostPort
+        [int]$PaseoHostPort,
+        [int]$HttpHostPort,
+        [int]$AltHttpHostPort
     )
 
     $dockerArgs = @(
@@ -97,6 +103,8 @@ function Start-Container {
         "-p", "127.0.0.1:${T3HostPort}:${DefaultT3ContainerPort}",
         "-p", "127.0.0.1:${CodeNomadHostPort}:${DefaultCodeNomadContainerPort}",
         "-p", "127.0.0.1:${PaseoHostPort}:${DefaultPaseoContainerPort}",
+        "-p", "127.0.0.1:${HttpHostPort}:${DefaultHttpContainerPort}",
+        "-p", "127.0.0.1:${AltHttpHostPort}:${DefaultAltHttpContainerPort}",
         "-e", "AI_SANDBOX_T3_PORT=$DefaultT3ContainerPort",
         "-e", "AI_SANDBOX_HOST_T3_PORT=$T3HostPort",
         "-e", "AI_SANDBOX_T3_URL=http://127.0.0.1:$T3HostPort",
@@ -106,6 +114,12 @@ function Start-Container {
         "-e", "AI_SANDBOX_PASEO_PORT=$DefaultPaseoContainerPort",
         "-e", "AI_SANDBOX_HOST_PASEO_PORT=$PaseoHostPort",
         "-e", "AI_SANDBOX_PASEO_ADDRESS=127.0.0.1:$PaseoHostPort",
+        "-e", "AI_SANDBOX_HTTP_PORT=$DefaultHttpContainerPort",
+        "-e", "AI_SANDBOX_HOST_HTTP_PORT=$HttpHostPort",
+        "-e", "AI_SANDBOX_HTTP_URL=http://127.0.0.1:$HttpHostPort",
+        "-e", "AI_SANDBOX_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
+        "-e", "AI_SANDBOX_HOST_ALT_HTTP_PORT=$AltHttpHostPort",
+        "-e", "AI_SANDBOX_ALT_HTTP_URL=http://127.0.0.1:$AltHttpHostPort",
         "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
         "-e", "LOCAL_UID=1000",
         "-e", "LOCAL_GID=1000",
@@ -279,6 +293,8 @@ function Ensure-Container {
         [int]$T3HostPort,
         [int]$CodeNomadHostPort,
         [int]$PaseoHostPort,
+        [int]$HttpHostPort,
+        [int]$AltHttpHostPort,
         [switch]$ForceRecreate
     )
 
@@ -292,11 +308,15 @@ function Ensure-Container {
         $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
         $existingCodeNomadPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultCodeNomadContainerPort
         $existingPaseoPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultPaseoContainerPort
+        $existingHttpPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultHttpContainerPort
+        $existingAltHttpPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAltHttpContainerPort
         if ($ForceRecreate -or
             $containerImageId -ne $currentImageId -or
             ($existingT3Port -and $existingT3Port -ne $T3HostPort) -or
             ($existingCodeNomadPort -and $existingCodeNomadPort -ne $CodeNomadHostPort) -or
-            ($existingPaseoPort -and $existingPaseoPort -ne $PaseoHostPort)) {
+            ($existingPaseoPort -and $existingPaseoPort -ne $PaseoHostPort) -or
+            ($existingHttpPort -and $existingHttpPort -ne $HttpHostPort) -or
+            ($existingAltHttpPort -and $existingAltHttpPort -ne $AltHttpHostPort)) {
             Remove-ContainerIfExists -Name $Meta.Container
         }
     }
@@ -310,12 +330,16 @@ function Ensure-Container {
         $attemptT3Port = $T3HostPort
         $attemptCodeNomadPort = $CodeNomadHostPort
         $attemptPaseoPort = $PaseoHostPort
+        $attemptHttpPort = $HttpHostPort
+        $attemptAltHttpPort = $AltHttpHostPort
         for ($attempt = 0; $attempt -lt 5; $attempt++) {
             try {
-                Start-Container -Meta $Meta -T3HostPort $attemptT3Port -CodeNomadHostPort $attemptCodeNomadPort -PaseoHostPort $attemptPaseoPort
+                Start-Container -Meta $Meta -T3HostPort $attemptT3Port -CodeNomadHostPort $attemptCodeNomadPort -PaseoHostPort $attemptPaseoPort -HttpHostPort $attemptHttpPort -AltHttpHostPort $attemptAltHttpPort
                 $script:SelectedT3HostPort = $attemptT3Port
                 $script:SelectedCodeNomadHostPort = $attemptCodeNomadPort
                 $script:SelectedPaseoHostPort = $attemptPaseoPort
+                $script:SelectedHttpHostPort = $attemptHttpPort
+                $script:SelectedAltHttpHostPort = $attemptAltHttpPort
                 break
             } catch {
                 Remove-ContainerIfExists -Name $Meta.Container
@@ -323,6 +347,8 @@ function Ensure-Container {
                     $attemptT3Port = Get-FreePort -StartPort ($attemptT3Port + 1)
                     $attemptCodeNomadPort = Get-FreePort -StartPort ($attemptCodeNomadPort + 1)
                     $attemptPaseoPort = Get-FreePort -StartPort ($attemptPaseoPort + 1)
+                    $attemptHttpPort = Get-FreePort -StartPort ($attemptHttpPort + 1)
+                    $attemptAltHttpPort = Get-FreePort -StartPort ($attemptAltHttpPort + 1)
                     continue
                 }
                 throw
@@ -364,6 +390,12 @@ function Exec-InContainer {
         "-e", "AI_SANDBOX_PASEO_ADDRESS=127.0.0.1:$script:SelectedPaseoHostPort",
         "-e", "AI_SANDBOX_HOST_PASEO_PORT=$script:SelectedPaseoHostPort",
         "-e", "AI_SANDBOX_PASEO_PORT=$DefaultPaseoContainerPort",
+        "-e", "AI_SANDBOX_HTTP_URL=http://127.0.0.1:$script:SelectedHttpHostPort",
+        "-e", "AI_SANDBOX_HOST_HTTP_PORT=$script:SelectedHttpHostPort",
+        "-e", "AI_SANDBOX_HTTP_PORT=$DefaultHttpContainerPort",
+        "-e", "AI_SANDBOX_ALT_HTTP_URL=http://127.0.0.1:$script:SelectedAltHttpHostPort",
+        "-e", "AI_SANDBOX_HOST_ALT_HTTP_PORT=$script:SelectedAltHttpHostPort",
+        "-e", "AI_SANDBOX_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
         "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
         $Meta.Container,
         "/opt/ai-sandbox/entrypoint.sh"
@@ -455,11 +487,15 @@ if ($rebuild) {
 $existingT3Port = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container -ContainerPort $DefaultT3ContainerPort } else { $null }
 $existingCodeNomadPort = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container -ContainerPort $DefaultCodeNomadContainerPort } else { $null }
 $existingPaseoPort = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container -ContainerPort $DefaultPaseoContainerPort } else { $null }
+$existingHttpPort = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container -ContainerPort $DefaultHttpContainerPort } else { $null }
+$existingAltHttpPort = if (Test-ContainerExists -Name $meta.Container) { Get-ExistingHostPort -Name $meta.Container -ContainerPort $DefaultAltHttpContainerPort } else { $null }
 $script:SelectedT3HostPort = if ($explicitT3Port) { $explicitT3Port } elseif ($existingT3Port) { $existingT3Port } else { Get-FreePort -StartPort $DefaultT3HostPort }
 $script:SelectedCodeNomadHostPort = if ($explicitCodeNomadPort) { $explicitCodeNomadPort } elseif ($existingCodeNomadPort) { $existingCodeNomadPort } else { Get-FreePort -StartPort $DefaultCodeNomadHostPort }
 $script:SelectedPaseoHostPort = if ($explicitPaseoPort) { $explicitPaseoPort } elseif ($existingPaseoPort) { $existingPaseoPort } else { Get-FreePort -StartPort $DefaultPaseoHostPort }
+$script:SelectedHttpHostPort = if ($existingHttpPort) { $existingHttpPort } else { Get-FreePort -StartPort $DefaultHttpHostPort }
+$script:SelectedAltHttpHostPort = if ($existingAltHttpPort) { $existingAltHttpPort } else { Get-FreePort -StartPort $DefaultAltHttpHostPort }
 
-Ensure-Container -Meta $meta -T3HostPort $script:SelectedT3HostPort -CodeNomadHostPort $script:SelectedCodeNomadHostPort -PaseoHostPort $script:SelectedPaseoHostPort -ForceRecreate:$rebuild
+Ensure-Container -Meta $meta -T3HostPort $script:SelectedT3HostPort -CodeNomadHostPort $script:SelectedCodeNomadHostPort -PaseoHostPort $script:SelectedPaseoHostPort -HttpHostPort $script:SelectedHttpHostPort -AltHttpHostPort $script:SelectedAltHttpHostPort -ForceRecreate:$rebuild
 
 switch ($command) {
     "reset-config" {

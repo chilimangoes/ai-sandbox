@@ -5,10 +5,11 @@
 ## v1 behavior
 
 - `ai-sandbox` opens an interactive shell in `/workspace/<project-folder-slug>`
-- shell startup prints a short banner with `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, and `paseo`, plus the selected T3, CodeNomad, and Paseo addresses
+- shell startup prints a short banner with `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, and `paseo`, plus the selected T3, CodeNomad, Paseo, and published web-port addresses
 - `ai-sandbox t3` starts T3 for the current terminal session; ending the session stops T3
 - `ai-sandbox codenomad` starts CodeNomad server/web mode for the current terminal session; ending the session stops CodeNomad
 - `ai-sandbox paseo` starts the Paseo daemon for the current terminal session; ending the session stops Paseo; public relay connectivity is disabled by default
+- each sandbox container also publishes container port `80` to the first free host port starting at `58080`, and container port `8080` to the first free host port starting at `58880`
 - auth persists only inside Docker volumes owned by the sandbox
 - updates happen only through explicit `--update` or `--rebuild`
 
