@@ -24,6 +24,14 @@ if ($psLauncher -notmatch '\$DefaultAltHttpHostPort = 58880') {
     throw "Expected bin/ai-sandbox.ps1 to define DefaultAltHttpHostPort."
 }
 
+if ($psLauncher -notmatch '\$DefaultAppContainerPort = 3000') {
+    throw "Expected bin/ai-sandbox.ps1 to define DefaultAppContainerPort."
+}
+
+if ($psLauncher -notmatch '\$DefaultAppHostPort = 33000') {
+    throw "Expected bin/ai-sandbox.ps1 to define DefaultAppHostPort."
+}
+
 if ($bashLauncher -notmatch 'DEFAULT_HTTP_CONTAINER_PORT=80') {
     throw "Expected bin/ai-sandbox to define DEFAULT_HTTP_CONTAINER_PORT."
 }
@@ -40,12 +48,24 @@ if ($bashLauncher -notmatch 'DEFAULT_ALT_HTTP_HOST_PORT=58880') {
     throw "Expected bin/ai-sandbox to define DEFAULT_ALT_HTTP_HOST_PORT."
 }
 
+if ($bashLauncher -notmatch 'DEFAULT_APP_CONTAINER_PORT=3000') {
+    throw "Expected bin/ai-sandbox to define DEFAULT_APP_CONTAINER_PORT."
+}
+
+if ($bashLauncher -notmatch 'DEFAULT_APP_HOST_PORT=33000') {
+    throw "Expected bin/ai-sandbox to define DEFAULT_APP_HOST_PORT."
+}
+
 if ($psLauncher -notmatch '-p", "127\.0\.0\.1:\$\{?HttpHostPort\}?:\$\{?DefaultHttpContainerPort\}?"') {
     throw "Expected bin/ai-sandbox.ps1 to publish host port for container port 80."
 }
 
 if ($psLauncher -notmatch '-p", "127\.0\.0\.1:\$\{?AltHttpHostPort\}?:\$\{?DefaultAltHttpContainerPort\}?"') {
     throw "Expected bin/ai-sandbox.ps1 to publish host port for container port 8080."
+}
+
+if ($psLauncher -notmatch '-p", "127\.0\.0\.1:\$\{?AppHostPort\}?:\$\{?DefaultAppContainerPort\}?"') {
+    throw "Expected bin/ai-sandbox.ps1 to publish host port for container port 3000."
 }
 
 if ($bashLauncher -notmatch '-p "127\.0\.0\.1:\$\{attempt_http_host_port\}:\$\{DEFAULT_HTTP_CONTAINER_PORT\}"') {
@@ -56,12 +76,20 @@ if ($bashLauncher -notmatch '-p "127\.0\.0\.1:\$\{attempt_alt_http_host_port\}:\
     throw "Expected bin/ai-sandbox to publish host port for container port 8080."
 }
 
+if ($bashLauncher -notmatch '-p "127\.0\.0\.1:\$\{attempt_app_host_port\}:\$\{DEFAULT_APP_CONTAINER_PORT\}"') {
+    throw "Expected bin/ai-sandbox to publish host port for container port 3000."
+}
+
 if ($psLauncher -notmatch 'Get-ExistingHostPort -Name \$Meta\.Container -ContainerPort \$DefaultHttpContainerPort') {
     throw "Expected bin/ai-sandbox.ps1 to resolve the existing host port for container port 80."
 }
 
 if ($psLauncher -notmatch 'Get-ExistingHostPort -Name \$Meta\.Container -ContainerPort \$DefaultAltHttpContainerPort') {
     throw "Expected bin/ai-sandbox.ps1 to resolve the existing host port for container port 8080."
+}
+
+if ($psLauncher -notmatch 'Get-ExistingHostPort -Name \$Meta\.Container -ContainerPort \$DefaultAppContainerPort') {
+    throw "Expected bin/ai-sandbox.ps1 to resolve the existing host port for container port 3000."
 }
 
 if ($bashLauncher -notmatch 'existing_host_port "\$CONTAINER_NAME" "\$DEFAULT_HTTP_CONTAINER_PORT"') {
@@ -72,12 +100,20 @@ if ($bashLauncher -notmatch 'existing_host_port "\$CONTAINER_NAME" "\$DEFAULT_AL
     throw "Expected bin/ai-sandbox to resolve the existing host port for container port 8080."
 }
 
+if ($bashLauncher -notmatch 'existing_host_port "\$CONTAINER_NAME" "\$DEFAULT_APP_CONTAINER_PORT"') {
+    throw "Expected bin/ai-sandbox to resolve the existing host port for container port 3000."
+}
+
 if ($psLauncher -notmatch 'AI_SANDBOX_HTTP_URL=http://127\.0\.0\.1:\$') {
     throw "Expected bin/ai-sandbox.ps1 to pass AI_SANDBOX_HTTP_URL into the container."
 }
 
 if ($psLauncher -notmatch 'AI_SANDBOX_ALT_HTTP_URL=http://127\.0\.0\.1:\$') {
     throw "Expected bin/ai-sandbox.ps1 to pass AI_SANDBOX_ALT_HTTP_URL into the container."
+}
+
+if ($psLauncher -notmatch 'AI_SANDBOX_APP_URL=http://127\.0\.0\.1:\$') {
+    throw "Expected bin/ai-sandbox.ps1 to pass AI_SANDBOX_APP_URL into the container."
 }
 
 if ($bashLauncher -notmatch 'AI_SANDBOX_HTTP_URL=http://127\.0\.0\.1:\$\{attempt_http_host_port\}') {
@@ -88,12 +124,20 @@ if ($bashLauncher -notmatch 'AI_SANDBOX_ALT_HTTP_URL=http://127\.0\.0\.1:\$\{att
     throw "Expected bin/ai-sandbox to pass AI_SANDBOX_ALT_HTTP_URL into the container."
 }
 
+if ($bashLauncher -notmatch 'AI_SANDBOX_APP_URL=http://127\.0\.0\.1:\$\{attempt_app_host_port\}') {
+    throw "Expected bin/ai-sandbox to pass AI_SANDBOX_APP_URL into the container."
+}
+
 if ($entrypoint -notmatch 'HOST_HTTP_URL="\$\{AI_SANDBOX_HTTP_URL:-http://127\.0\.0\.1:\$\{AI_SANDBOX_HOST_HTTP_PORT:-\$CONTAINER_HTTP_PORT\}\}"') {
     throw "Expected docker/entrypoint.sh to derive a host-visible URL for container port 80."
 }
 
 if ($entrypoint -notmatch 'HOST_ALT_HTTP_URL="\$\{AI_SANDBOX_ALT_HTTP_URL:-http://127\.0\.0\.1:\$\{AI_SANDBOX_HOST_ALT_HTTP_PORT:-\$CONTAINER_ALT_HTTP_PORT\}\}"') {
     throw "Expected docker/entrypoint.sh to derive a host-visible URL for container port 8080."
+}
+
+if ($entrypoint -notmatch 'HOST_APP_URL="\$\{AI_SANDBOX_APP_URL:-http://127\.0\.0\.1:\$\{AI_SANDBOX_HOST_APP_PORT:-\$CONTAINER_APP_PORT\}\}"') {
+    throw "Expected docker/entrypoint.sh to derive a host-visible URL for container port 3000."
 }
 
 Write-Host "additional-port-mappings.ps1 passed"

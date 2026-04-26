@@ -95,5 +95,6 @@ Notes:
 
 - Container port `80` is always published on `127.0.0.1`, starting from host port `58080`.
 - Container port `8080` is always published on `127.0.0.1`, starting from host port `58880`.
+- Container port `3000` is always published on `127.0.0.1`, starting from host port `33000`.
 - If either preferred host port is occupied, the launcher auto-selects the next free port.
-- The shell banner prints both selected host-visible URLs for the current workspace sandbox.
+- The shell banner prints all selected host-visible URLs for the current workspace sandbox.

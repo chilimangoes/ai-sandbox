@@ -8,7 +8,7 @@
 ## Container basics
 
 - `ai-sandbox` opens a shell in `/workspace/<project-folder-slug>`.
-- The shell banner shows the available commands, including `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, `ai-sandbox paseo`, and the published container `80` and `8080` mappings.
+- The shell banner shows the available commands, including `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, `ai-sandbox paseo`, and the published container `80`, `8080`, and `3000` mappings.
 - Files created in `/workspace/<project-folder-slug>` appear on the host.
 
 ## Tool versions
@@ -47,7 +47,8 @@
 
 - `docker port <container-name>` shows a binding for `80/tcp` on a host port `>= 58080`.
 - `docker port <container-name>` shows a binding for `8080/tcp` on a host port `>= 58880`.
-- The shell banner prints both selected host-visible URLs.
+- `docker port <container-name>` shows a binding for `3000/tcp` on a host port `>= 33000`.
+- The shell banner prints all selected host-visible URLs.
 
 ## Reset semantics
 

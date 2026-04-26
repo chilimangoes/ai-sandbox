@@ -47,4 +47,8 @@ if ($entrypoint -notmatch 'Web Port 8080: %s') {
     throw "Expected docker/entrypoint.sh to print the host-visible mapping for container port 8080 in the shell banner."
 }
 
+if ($entrypoint -notmatch 'Web Port 3000: %s') {
+    throw "Expected docker/entrypoint.sh to print the host-visible mapping for container port 3000 in the shell banner."
+}
+
 Write-Host "banner-text.ps1 passed"

@@ -14,6 +14,8 @@ DEFAULT_HTTP_CONTAINER_PORT=80
 DEFAULT_HTTP_HOST_PORT=58080
 DEFAULT_ALT_HTTP_CONTAINER_PORT=8080
 DEFAULT_ALT_HTTP_HOST_PORT=58880
+DEFAULT_APP_CONTAINER_PORT=3000
+DEFAULT_APP_HOST_PORT=33000
 
 usage() {
   echo "Usage: ai-sandbox [--update] [--rebuild] [--t3-port <port>] [--codenomad-port <port>] [--paseo-port <port>] [shell|codex|gemini|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
@@ -111,6 +113,7 @@ ensure_container() {
   local paseo_host_port="$3"
   local http_host_port="$4"
   local alt_http_host_port="$5"
+  local app_host_port="$6"
 
   local current_image_id
   current_image_id="$(image_id "$IMAGE_TAG")"
@@ -130,6 +133,8 @@ ensure_container() {
     current_http_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_HTTP_CONTAINER_PORT")"
     local current_alt_http_port
     current_alt_http_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_ALT_HTTP_CONTAINER_PORT")"
+    local current_app_port
+    current_app_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_APP_CONTAINER_PORT")"
     if [[ "$FORCE_RECREATE" == "true" || "$running_image_id" != "$current_image_id" ]]; then
       recreate_needed="true"
     fi
@@ -148,6 +153,9 @@ ensure_container() {
     if [[ -n "$current_alt_http_port" && "$current_alt_http_port" != "$alt_http_host_port" ]]; then
       recreate_needed="true"
     fi
+    if [[ -n "$current_app_port" && "$current_app_port" != "$app_host_port" ]]; then
+      recreate_needed="true"
+    fi
     if [[ "$recreate_needed" == "true" ]]; then
       remove_container "$CONTAINER_NAME"
     fi
@@ -164,6 +172,7 @@ ensure_container() {
     local attempt_paseo_host_port="$paseo_host_port"
     local attempt_http_host_port="$http_host_port"
     local attempt_alt_http_host_port="$alt_http_host_port"
+    local attempt_app_host_port="$app_host_port"
     local attempt error_message
     for ((attempt=0; attempt<5; attempt++)); do
       if error_message="$(
@@ -176,6 +185,7 @@ ensure_container() {
           -p "127.0.0.1:${attempt_paseo_host_port}:${DEFAULT_PASEO_CONTAINER_PORT}" \
           -p "127.0.0.1:${attempt_http_host_port}:${DEFAULT_HTTP_CONTAINER_PORT}" \
           -p "127.0.0.1:${attempt_alt_http_host_port}:${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
+          -p "127.0.0.1:${attempt_app_host_port}:${DEFAULT_APP_CONTAINER_PORT}" \
           -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
           -e "AI_SANDBOX_HOST_T3_PORT=${attempt_t3_host_port}" \
           -e "AI_SANDBOX_T3_URL=http://127.0.0.1:${attempt_t3_host_port}" \
@@ -191,6 +201,9 @@ ensure_container() {
           -e "AI_SANDBOX_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
           -e "AI_SANDBOX_HOST_ALT_HTTP_PORT=${attempt_alt_http_host_port}" \
           -e "AI_SANDBOX_ALT_HTTP_URL=http://127.0.0.1:${attempt_alt_http_host_port}" \
+          -e "AI_SANDBOX_APP_PORT=${DEFAULT_APP_CONTAINER_PORT}" \
+          -e "AI_SANDBOX_HOST_APP_PORT=${attempt_app_host_port}" \
+          -e "AI_SANDBOX_APP_URL=http://127.0.0.1:${attempt_app_host_port}" \
           -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
           -e "LOCAL_UID=$(id -u)" \
           -e "LOCAL_GID=$(id -g)" \
@@ -207,6 +220,7 @@ ensure_container() {
         SELECTED_PASEO_HOST_PORT="$attempt_paseo_host_port"
         SELECTED_HTTP_HOST_PORT="$attempt_http_host_port"
         SELECTED_ALT_HTTP_HOST_PORT="$attempt_alt_http_host_port"
+        SELECTED_APP_HOST_PORT="$attempt_app_host_port"
         break
       fi
 
@@ -217,6 +231,7 @@ ensure_container() {
         attempt_paseo_host_port="$(free_port "$((attempt_paseo_host_port + 1))")"
         attempt_http_host_port="$(free_port "$((attempt_http_host_port + 1))")"
         attempt_alt_http_host_port="$(free_port "$((attempt_alt_http_host_port + 1))")"
+        attempt_app_host_port="$(free_port "$((attempt_app_host_port + 1))")"
         continue
       fi
 
@@ -253,6 +268,9 @@ exec_in_container() {
       -e "AI_SANDBOX_ALT_HTTP_URL=http://127.0.0.1:${SELECTED_ALT_HTTP_HOST_PORT}" \
       -e "AI_SANDBOX_HOST_ALT_HTTP_PORT=${SELECTED_ALT_HTTP_HOST_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_APP_URL=http://127.0.0.1:${SELECTED_APP_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_APP_PORT=${SELECTED_APP_HOST_PORT}" \
+      -e "AI_SANDBOX_APP_PORT=${DEFAULT_APP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
@@ -273,6 +291,9 @@ exec_in_container() {
       -e "AI_SANDBOX_ALT_HTTP_URL=http://127.0.0.1:${SELECTED_ALT_HTTP_HOST_PORT}" \
       -e "AI_SANDBOX_HOST_ALT_HTTP_PORT=${SELECTED_ALT_HTTP_HOST_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
+      -e "AI_SANDBOX_APP_URL=http://127.0.0.1:${SELECTED_APP_HOST_PORT}" \
+      -e "AI_SANDBOX_HOST_APP_PORT=${SELECTED_APP_HOST_PORT}" \
+      -e "AI_SANDBOX_APP_PORT=${DEFAULT_APP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
@@ -366,12 +387,14 @@ if container_exists "$CONTAINER_NAME"; then
   EXISTING_PASEO_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_PASEO_CONTAINER_PORT")"
   EXISTING_HTTP_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_HTTP_CONTAINER_PORT")"
   EXISTING_ALT_HTTP_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_ALT_HTTP_CONTAINER_PORT")"
+  EXISTING_APP_PORT="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_APP_CONTAINER_PORT")"
 else
   EXISTING_T3_PORT=""
   EXISTING_CODENOMAD_PORT=""
   EXISTING_PASEO_PORT=""
   EXISTING_HTTP_PORT=""
   EXISTING_ALT_HTTP_PORT=""
+  EXISTING_APP_PORT=""
 fi
 
 if [[ -n "$EXPLICIT_T3_PORT" ]]; then
@@ -410,7 +433,13 @@ else
   SELECTED_ALT_HTTP_HOST_PORT="$(free_port "$DEFAULT_ALT_HTTP_HOST_PORT")"
 fi
 
-ensure_container "$SELECTED_T3_HOST_PORT" "$SELECTED_CODENOMAD_HOST_PORT" "$SELECTED_PASEO_HOST_PORT" "$SELECTED_HTTP_HOST_PORT" "$SELECTED_ALT_HTTP_HOST_PORT"
+if [[ -n "$EXISTING_APP_PORT" ]]; then
+  SELECTED_APP_HOST_PORT="$EXISTING_APP_PORT"
+else
+  SELECTED_APP_HOST_PORT="$(free_port "$DEFAULT_APP_HOST_PORT")"
+fi
+
+ensure_container "$SELECTED_T3_HOST_PORT" "$SELECTED_CODENOMAD_HOST_PORT" "$SELECTED_PASEO_HOST_PORT" "$SELECTED_HTTP_HOST_PORT" "$SELECTED_ALT_HTTP_HOST_PORT" "$SELECTED_APP_HOST_PORT"
 
 case "$COMMAND" in
   reset-config)
