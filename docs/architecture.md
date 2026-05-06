@@ -125,8 +125,8 @@ Maintenance commands:
 
 - Base image: Debian Bookworm slim
 - Runtime: Node.js 22
-- Common packages: `bash`, `curl`, `git`, `jq`, `less`, `procps`, `ripgrep`, `unzip`, `ca-certificates`
-- Runtime user: non-root `sandbox`
+- Common packages: `bash`, `curl`, `git`, `jq`, `less`, `procps`, `ripgrep`, `sudo`, `unzip`, `ca-certificates`
+- Runtime user: non-root `sandbox` with passwordless `sudo` for in-container elevation
 
 The image installs:
 

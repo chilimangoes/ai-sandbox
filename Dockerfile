@@ -19,6 +19,7 @@ RUN apt-get update \
         procps \
         python3 \
         ripgrep \
+        sudo \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,7 +30,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 
 RUN npm install -g @openai/codex @google/gemini-cli @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli
 
-RUN useradd --create-home --shell /bin/bash sandbox
+RUN useradd --create-home --shell /bin/bash sandbox \
+    && printf '%s\n' 'sandbox ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/sandbox \
+    && chmod 0440 /etc/sudoers.d/sandbox \
+    && visudo -cf /etc/sudoers.d/sandbox
 
 RUN mkdir -p /opt/ai-sandbox/defaults/configs /opt/ai-sandbox/bootstrap /state/config /state/auth /state/data /state/cache \
     && chown -R sandbox:sandbox /opt/ai-sandbox /state /home/sandbox
