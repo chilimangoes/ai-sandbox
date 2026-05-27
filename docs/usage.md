@@ -23,9 +23,6 @@ Maintenance:
 - `ai-sandbox reset-state`: remove the current workspace container and all persisted state volumes for that workspace, including auth
 - `ai-sandbox --update`: rebuild the shared image, then reuse the existing workspace container unless it needs to be recreated
 - `ai-sandbox --rebuild`: rebuild the shared image and always remove and recreate the workspace container
-- `ai-sandbox --t3-port 3774`
-- `ai-sandbox --codenomad-port 9901`
-- `ai-sandbox --paseo-port 6768`
 
 ## Windows
 
@@ -53,7 +50,6 @@ Requirements:
 - Docker Engine
 - `bash`
 - `sha256sum`
-- `ss` or `netstat` for port probing
 
 Install:
 
@@ -67,23 +63,22 @@ Notes:
 
 ## T3 access
 
-- Default host URL: `http://127.0.0.1:3773`
-- If that port is occupied, the launcher auto-selects the next free port unless `--t3-port` is supplied.
+- Host URL: `http://<workspace-127.x.y.z>:3773`
+- The host address is a workspace-specific loopback address, such as `127.91.42.17`, derived from the workspace path.
 - The shell banner prints the chosen URL for the current workspace sandbox.
+- Open the exact printed URL. Do not rewrite it to `localhost` or `127.0.0.1` when running multiple T3 sandboxes at once, because T3 browser cookies are scoped by host.
 - The URL is not live in plain shell mode; run `ai-sandbox t3` or `t3` inside the sandbox shell before opening it in a browser.
 
 ## CodeNomad access
 
-- Default host URL: `http://127.0.0.1:9899`
-- If that port is occupied, the launcher auto-selects the next free port unless `--codenomad-port` is supplied.
+- Host URL: `http://<workspace-127.x.y.z>:9899`
 - The shell banner prints the chosen URL for the current workspace sandbox.
 - The URL is not live in plain shell mode; run `ai-sandbox codenomad` or `codenomad` inside the sandbox shell before opening it in a browser.
 - CodeNomad runs inside the sandbox and uses the sandbox's `opencode` binary, config, auth, and workspace files.
 
 ## Paseo access
 
-- Default host daemon address: `127.0.0.1:6767`
-- If that port is occupied, the launcher auto-selects the next free port unless `--paseo-port` is supplied.
+- Host daemon address: `<workspace-127.x.y.z>:6767`
 - The shell banner prints the chosen address for the current workspace sandbox.
 - Run `ai-sandbox paseo` or `paseo` inside the sandbox shell to start the daemon in the foreground.
 - Use the Paseo CLI, app, or other clients to connect to that daemon.
@@ -93,8 +88,6 @@ Notes:
 
 ## Published web ports
 
-- Container port `80` is always published on `127.0.0.1`, starting from host port `58080`.
-- Container port `8080` is always published on `127.0.0.1`, starting from host port `58880`.
-- Container port `3000` is always published on `127.0.0.1`, starting from host port `33000`.
-- If either preferred host port is occupied, the launcher auto-selects the next free port.
-- The shell banner prints all selected host-visible URLs for the current workspace sandbox.
+- All published services use the same workspace-specific host address.
+- Container ports `8080` and `3000` are published on matching host ports at that address.
+- The shell banner prints all host-visible URLs for the current workspace sandbox.

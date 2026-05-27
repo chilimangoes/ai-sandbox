@@ -17,8 +17,12 @@ if ($entrypoint -notmatch 'export AI_SANDBOX_WORKSPACE_PATH=') {
     throw "Expected docker/entrypoint.sh to export AI_SANDBOX_WORKSPACE_PATH before dispatching commands."
 }
 
-if ($entrypoint -notmatch 't3 start --no-browser --host 0\.0\.0\.0 --port .* --auto-bootstrap-project-from-cwd') {
+if ($entrypoint -notmatch 't3 start --no-browser --host 0\.0\.0\.0 --port .* --base-dir /state/data/t3 --auto-bootstrap-project-from-cwd') {
     throw "Expected docker/entrypoint.sh to auto-bootstrap the current workspace path as a T3 project on first launch."
+}
+
+if ($entrypoint -match '--state-dir') {
+    throw "docker/entrypoint.sh passes --state-dir, but this T3 CLI exposes --base-dir instead."
 }
 
 if ($entrypoint -match 'npx --yes t3') {

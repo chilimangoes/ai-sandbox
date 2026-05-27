@@ -16,7 +16,7 @@
 The host launcher is workspace-centric:
 
 1. Resolve the current working directory as the sandbox workspace.
-2. Derive a stable workspace slug and short hash from the absolute path.
+2. Derive a stable workspace slug, short hash, and workspace-specific loopback address from the absolute path.
 3. Build or refresh the shared image when required.
 4. Start one detached workspace-scoped container.
 5. Execute either `shell`, `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, or `paseo` inside that container.
@@ -89,36 +89,40 @@ Maintenance commands:
 - `ai-sandbox reset-state`
 - `ai-sandbox --update`
 - `ai-sandbox --rebuild`
-- `ai-sandbox --t3-port <port>`
-- `ai-sandbox --codenomad-port <port>`
-- `ai-sandbox --paseo-port <port>`
+
+## Service exposure model
+
+- Each workspace gets one deterministic `127.x.y.z` host loopback address derived from the workspace hash.
+- Published services use matching host and container ports on that address.
+- Existing workspace containers are recreated when their published service ports do not match the fixed-port model.
 
 ## T3 exposure
 
 - Container port: `3773`
-- Default host port: `3773`
-- If `--t3-port` is omitted, the launcher probes from `3773` upward until it finds a free host port.
+- Host port: `3773`
+- Host address: the workspace-specific loopback address.
 - The chosen URL is surfaced in shell startup output and when T3 launches.
+- Users should open the exact printed URL. Rewriting it to `localhost` or `127.0.0.1` defeats the browser cookie isolation used for multiple simultaneous T3 sandboxes.
 - Shell mode reserves and prints the URL, but only `ai-sandbox t3` starts the T3 server.
 - T3 is configured for Codex-backed usage in v1. Future provider support can add new preset files without changing the launcher contract.
 
 ## CodeNomad exposure
 
 - Container port: `9899`
-- Default host port: `9899`
-- If `--codenomad-port` is omitted, the launcher probes from `9899` upward until it finds a free host port.
+- Host port: `9899`
+- Host address: the workspace-specific loopback address.
 - The chosen URL is surfaced in shell startup output and when CodeNomad launches.
 - Shell mode reserves and prints the URL, but only `ai-sandbox codenomad` starts the CodeNomad server.
-- The workspace container publishes both the T3 and CodeNomad service ports at creation time because Docker port mappings cannot be added later without recreating the container.
+- The workspace container publishes service ports at creation time because Docker port mappings cannot be added later without recreating the container.
 
 ## Paseo exposure
 
 - Container port: `6767`
-- Default host port: `6767`
-- If `--paseo-port` is omitted, the launcher probes from `6767` upward until it finds a free host port.
+- Host port: `6767`
+- Host address: the workspace-specific loopback address.
 - The chosen address is surfaced in shell startup output and when Paseo launches.
 - Shell mode reserves and prints the address, but only `ai-sandbox paseo` starts the Paseo daemon.
-- The workspace container publishes T3, CodeNomad, and Paseo service ports at creation time because Docker port mappings cannot be added later without recreating the container.
+- The workspace container publishes service ports at creation time because Docker port mappings cannot be added later without recreating the container.
 - `ai-sandbox paseo` passes `--no-relay` by default. To enable the relay, set `paseo_relay=1` in `/state/config/shared/sandbox.config` inside the container's persistent config state.
 
 ## Image design

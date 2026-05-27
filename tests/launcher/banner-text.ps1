@@ -39,8 +39,8 @@ if ($entrypoint -notmatch 'banner\.txt') {
     throw "Expected docker/entrypoint.sh banner output to include the shared banner text."
 }
 
-if ($entrypoint -notmatch 'Web Port 80: %s') {
-    throw "Expected docker/entrypoint.sh to print the host-visible mapping for container port 80 in the shell banner."
+if ($entrypoint -match 'Web Port 80: %s') {
+    throw "Expected docker/entrypoint.sh not to print an unpublished host mapping for container port 80."
 }
 
 if ($entrypoint -notmatch 'Web Port 8080: %s') {

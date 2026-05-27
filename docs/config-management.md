@@ -110,7 +110,7 @@ T3:
 
 - default config: `/state/config/t3/config.json`
 - runtime data: `/state/data/t3/`
-- `ai-sandbox t3` sets `T3CODE_HOME=/state/data/t3` so T3 state persists per workspace
+- `ai-sandbox t3` sets `T3CODE_HOME=/state/data/t3` and starts T3 with `--base-dir /state/data/t3` so T3 state persists per workspace
 
 ## Update behavior
 

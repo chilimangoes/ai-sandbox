@@ -13,4 +13,8 @@ if ($entrypoint -notmatch 'Pairing URL: \$AI_SANDBOX_T3_URL/pair#token=\$token')
     throw "Expected docker/entrypoint.sh to rewrite the T3 pairing URL to the host-visible URL."
 }
 
+if ($entrypoint -notmatch 'pairingUrl: \$AI_SANDBOX_T3_URL/pair#token=\$token') {
+    throw "Expected docker/entrypoint.sh to rewrite structured T3 pairingUrl log fields to the host-visible URL."
+}
+
 Write-Host "t3-output.ps1 passed"

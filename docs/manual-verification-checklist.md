@@ -8,7 +8,7 @@
 ## Container basics
 
 - `ai-sandbox` opens a shell in `/workspace/<project-folder-slug>`.
-- The shell banner shows the available commands, including `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, `ai-sandbox paseo`, and the published container `80`, `8080`, and `3000` mappings.
+- The shell banner shows the available commands, including `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, `ai-sandbox paseo`, and the published container `8080` and `3000` mappings.
 - Files created in `/workspace/<project-folder-slug>` appear on the host.
 
 ## Tool versions
@@ -24,31 +24,28 @@
 
 ## T3
 
-- `ai-sandbox t3` starts a server bound to the selected host port.
+- `ai-sandbox t3` starts a server reachable at the printed workspace-specific `127.x.y.z:3773` URL.
 - The host browser can reach the printed T3 URL.
+- Running two T3 sandboxes from different workspaces prints different loopback hosts; opening the exact printed URLs keeps both browser sessions connected.
 - T3 can create a Codex-backed session after Codex is authenticated.
 
 ## CodeNomad
 
-- `ai-sandbox codenomad` starts a server bound to the selected host port.
+- `ai-sandbox codenomad` starts a server reachable at the printed workspace-specific `127.x.y.z:9899` URL.
 - The host browser can reach the printed CodeNomad URL.
 - CodeNomad can open the current workspace and use the sandbox's `opencode`.
-- `ai-sandbox --codenomad-port 9901 codenomad` honors the explicit port.
 
 ## Paseo
 
-- `ai-sandbox paseo` starts a daemon bound to the selected host port.
+- `ai-sandbox paseo` starts a daemon reachable at the printed workspace-specific `127.x.y.z:6767` address.
 - Another Paseo client can connect to the printed daemon address.
 - Paseo can orchestrate the current workspace and use the sandbox's installed coding CLIs.
-- `ai-sandbox --paseo-port 6768 paseo` honors the explicit port.
 - Default Paseo startup disables relay; setting `paseo_relay=1` in `/state/config/shared/sandbox.config` opts into relay pairing.
 
 ## Published web ports
 
-- `docker port <container-name>` shows a binding for `80/tcp` on a host port `>= 58080`.
-- `docker port <container-name>` shows a binding for `8080/tcp` on a host port `>= 58880`.
-- `docker port <container-name>` shows a binding for `3000/tcp` on a host port `>= 33000`.
-- The shell banner prints all selected host-visible URLs.
+- `docker port <container-name>` shows bindings for `8080/tcp` and `3000/tcp` on matching ports at the workspace-specific host address.
+- The shell banner prints all host-visible URLs.
 
 ## Reset semantics
 

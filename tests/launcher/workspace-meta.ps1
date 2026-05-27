@@ -27,4 +27,12 @@ if ($hash.Substring(0, 12).Length -ne 12) {
     throw "Expected 12 character hash prefix."
 }
 
+$loopbackOctet2 = 64 + ([Convert]::ToInt32($hash.Substring(0, 2), 16) % 64)
+$loopbackOctet3 = [Convert]::ToInt32($hash.Substring(2, 2), 16)
+$loopbackOctet4 = 1 + ([Convert]::ToInt32($hash.Substring(4, 2), 16) % 254)
+$hostAddress = "127.$loopbackOctet2.$loopbackOctet3.$loopbackOctet4"
+if ($hostAddress -notmatch '^127\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d{1,3}\.([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-4])$') {
+    throw "Expected workspace hash to derive a host-specific 127.x.y.z T3 loopback address."
+}
+
 Write-Host "workspace-meta.ps1 passed"

@@ -10,9 +10,7 @@ HOST_CODENOMAD_URL="${AI_SANDBOX_CODENOMAD_URL:-http://127.0.0.1:${AI_SANDBOX_HO
 DEFAULT_PASEO_PORT="${AI_SANDBOX_DEFAULT_PASEO_PORT:-6767}"
 CONTAINER_PASEO_PORT="${AI_SANDBOX_PASEO_PORT:-$DEFAULT_PASEO_PORT}"
 HOST_PASEO_ADDRESS="${AI_SANDBOX_PASEO_ADDRESS:-127.0.0.1:${AI_SANDBOX_HOST_PASEO_PORT:-$CONTAINER_PASEO_PORT}}"
-DEFAULT_HTTP_PORT="${AI_SANDBOX_DEFAULT_HTTP_PORT:-80}"
-CONTAINER_HTTP_PORT="${AI_SANDBOX_HTTP_PORT:-$DEFAULT_HTTP_PORT}"
-HOST_HTTP_URL="${AI_SANDBOX_HTTP_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_HTTP_PORT:-$CONTAINER_HTTP_PORT}}"
+HOST_HTTP_URL="${AI_SANDBOX_HTTP_URL:-}"
 DEFAULT_ALT_HTTP_PORT="${AI_SANDBOX_DEFAULT_ALT_HTTP_PORT:-8080}"
 CONTAINER_ALT_HTTP_PORT="${AI_SANDBOX_ALT_HTTP_PORT:-$DEFAULT_ALT_HTTP_PORT}"
 HOST_ALT_HTTP_URL="${AI_SANDBOX_ALT_HTTP_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_ALT_HTTP_PORT:-$CONTAINER_ALT_HTTP_PORT}}"
@@ -50,7 +48,7 @@ ensure_runtime_user() {
 
 run_as_root() {
   local command="$1"
-  exec /bin/bash -lc "export HOME=/home/sandbox; export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_PASEO_ADDRESS='$HOST_PASEO_ADDRESS'; export AI_SANDBOX_PASEO_PORT='$CONTAINER_PASEO_PORT'; export AI_SANDBOX_HTTP_URL='$HOST_HTTP_URL'; export AI_SANDBOX_HTTP_PORT='$CONTAINER_HTTP_PORT'; export AI_SANDBOX_ALT_HTTP_URL='$HOST_ALT_HTTP_URL'; export AI_SANDBOX_ALT_HTTP_PORT='$CONTAINER_ALT_HTTP_PORT'; export AI_SANDBOX_APP_URL='$HOST_APP_URL'; export AI_SANDBOX_APP_PORT='$CONTAINER_APP_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
+  exec /bin/bash -lc "export HOME=/home/sandbox; export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_PASEO_ADDRESS='$HOST_PASEO_ADDRESS'; export AI_SANDBOX_PASEO_PORT='$CONTAINER_PASEO_PORT'; export AI_SANDBOX_HTTP_URL='$HOST_HTTP_URL'; export AI_SANDBOX_ALT_HTTP_URL='$HOST_ALT_HTTP_URL'; export AI_SANDBOX_ALT_HTTP_PORT='$CONTAINER_ALT_HTTP_PORT'; export AI_SANDBOX_APP_URL='$HOST_APP_URL'; export AI_SANDBOX_APP_PORT='$CONTAINER_APP_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
 }
 
 ensure_runtime_user
@@ -77,6 +75,11 @@ rewrite_t3_output() {
       "Pairing URL: "*"#token="*)
         token="${line##*#token=}"
         echo "Pairing URL: $AI_SANDBOX_T3_URL/pair#token=$token"
+        ;;
+      *"pairingUrl: "*"#token="*)
+        token="${line##*#token=}"
+        prefix="${line%%pairingUrl: *}"
+        echo "${prefix}pairingUrl: $AI_SANDBOX_T3_URL/pair#token=$token"
         ;;
       *)
         echo "$line"
@@ -119,7 +122,6 @@ print_banner() {
   printf '\nT3 URL (after `ai-sandbox t3`): %s\n' "$HOST_T3_URL"
   printf 'CodeNomad URL (after `ai-sandbox codenomad`): %s\n' "$HOST_CODENOMAD_URL"
   printf 'Paseo Address (after `ai-sandbox paseo`): %s\n' "$HOST_PASEO_ADDRESS"
-  printf 'Web Port 80: %s\n' "$HOST_HTTP_URL"
   printf 'Web Port 8080: %s\n' "$HOST_ALT_HTTP_URL"
   printf 'Web Port 3000: %s\n' "$HOST_APP_URL"
 }
@@ -143,7 +145,7 @@ run_doctor() {
 
 run_t3() {
   echo "Starting T3 on $HOST_T3_URL"
-  run_as_root "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; /opt/ai-sandbox/bin/t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
+  run_as_root "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; /opt/ai-sandbox/bin/t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --base-dir /state/data/t3 --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
 }
 
 run_codenomad() {

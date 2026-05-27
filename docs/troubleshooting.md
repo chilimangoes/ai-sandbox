@@ -11,22 +11,16 @@
 - Re-run from PowerShell so the launcher can resolve the canonical path cleanly.
 - OneDrive-backed paths are supported, but they still depend on Docker Desktop file sharing.
 
-## T3 port conflict
+## T3 disconnects when multiple sandboxes are open
 
-- Run `ai-sandbox --t3-port 3774`.
-- Without an explicit override, the launcher will probe upward from `3773`.
+- Open the exact T3 URL printed by `ai-sandbox`; it may use a workspace-specific address such as `127.91.42.17`.
+- Do not rewrite the printed T3 URL to `localhost` or `127.0.0.1`, because browser cookies are scoped by host and can collide across T3 instances.
 
-## CodeNomad port conflict
+## Published service address is unavailable
 
-- Run `ai-sandbox --codenomad-port 9901 codenomad`.
-- Without an explicit override, the launcher will probe upward from `9899`.
-- If the workspace container already exists with a different published CodeNomad port, the launcher recreates the container so the requested mapping can take effect.
-
-## Paseo port conflict
-
-- Run `ai-sandbox --paseo-port 6768 paseo`.
-- Without an explicit override, the launcher will probe upward from `6767`.
-- If the workspace container already exists with a different published Paseo port, the launcher recreates the container so the requested mapping can take effect.
+- Each workspace publishes T3, CodeNomad, Paseo, and web app ports `8080` and `3000` on one workspace-specific `127.x.y.z` address with matching host/container ports.
+- If Docker reports a bind conflict, stop or remove the process/container already using that exact workspace address and port.
+- `ai-sandbox --rebuild` recreates the current workspace container with the current fixed service mappings.
 
 ## Config changes were overwritten
 
