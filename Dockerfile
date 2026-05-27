@@ -3,6 +3,7 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV AI_SANDBOX_DEFAULT_T3_PORT=3773
+ENV AI_SANDBOX_REAL_BIN_DIR=/opt/ai-sandbox/bin
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -28,7 +29,25 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @openai/codex @google/gemini-cli @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli
+RUN npm install -g @openai/codex @google/gemini-cli @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli \
+    && mkdir -p "$AI_SANDBOX_REAL_BIN_DIR" \
+    && for command in codex gemini copilot opencode t3 codenomad paseo; do \
+        shim_path="$(command -v "$command")"; \
+        real_path="$(readlink -f "$shim_path")"; \
+        if [ "$real_path" = "$shim_path" ]; then \
+            mv "$shim_path" "$AI_SANDBOX_REAL_BIN_DIR/$command"; \
+        else \
+            ln -sf "$real_path" "$AI_SANDBOX_REAL_BIN_DIR/$command"; \
+            rm -f "$shim_path"; \
+        fi; \
+        printf '%s\n' \
+            '#!/usr/bin/env bash' \
+            'set -euo pipefail' \
+            'command="$(basename "$0")"' \
+            'exec /opt/ai-sandbox/entrypoint.sh "$command" "$@"' \
+            > "$shim_path"; \
+        chmod +x "$shim_path"; \
+    done
 
 RUN useradd --create-home --shell /bin/bash sandbox \
     && printf '%s\n' 'sandbox ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/sandbox \

@@ -21,6 +21,7 @@ CONTAINER_APP_PORT="${AI_SANDBOX_APP_PORT:-$DEFAULT_APP_PORT}"
 HOST_APP_URL="${AI_SANDBOX_APP_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_APP_PORT:-$CONTAINER_APP_PORT}}"
 WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
 SANDBOX_CONFIG_PATH="/state/config/shared/sandbox.config"
+REAL_BIN_DIR="${AI_SANDBOX_REAL_BIN_DIR:-/opt/ai-sandbox/bin}"
 
 ensure_runtime_user() {
   local target_uid="${LOCAL_UID:-1000}"
@@ -47,23 +48,24 @@ ensure_runtime_user() {
   chown -R sandbox:sandbox /state /home/sandbox
 }
 
-run_as_sandbox() {
+run_as_root() {
   local command="$1"
-  exec runuser -u sandbox -- /bin/bash -lc "export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_PASEO_ADDRESS='$HOST_PASEO_ADDRESS'; export AI_SANDBOX_PASEO_PORT='$CONTAINER_PASEO_PORT'; export AI_SANDBOX_HTTP_URL='$HOST_HTTP_URL'; export AI_SANDBOX_HTTP_PORT='$CONTAINER_HTTP_PORT'; export AI_SANDBOX_ALT_HTTP_URL='$HOST_ALT_HTTP_URL'; export AI_SANDBOX_ALT_HTTP_PORT='$CONTAINER_ALT_HTTP_PORT'; export AI_SANDBOX_APP_URL='$HOST_APP_URL'; export AI_SANDBOX_APP_PORT='$CONTAINER_APP_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
+  exec /bin/bash -lc "export HOME=/home/sandbox; export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_PASEO_ADDRESS='$HOST_PASEO_ADDRESS'; export AI_SANDBOX_PASEO_PORT='$CONTAINER_PASEO_PORT'; export AI_SANDBOX_HTTP_URL='$HOST_HTTP_URL'; export AI_SANDBOX_HTTP_PORT='$CONTAINER_HTTP_PORT'; export AI_SANDBOX_ALT_HTTP_URL='$HOST_ALT_HTTP_URL'; export AI_SANDBOX_ALT_HTTP_PORT='$CONTAINER_ALT_HTTP_PORT'; export AI_SANDBOX_APP_URL='$HOST_APP_URL'; export AI_SANDBOX_APP_PORT='$CONTAINER_APP_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
 }
 
 ensure_runtime_user
 /opt/ai-sandbox/bootstrap/init-state.sh
 chown -R sandbox:sandbox /state /home/sandbox
+git config --system --add safe.directory '*' 2>/dev/null || true
 
 quote_args() {
   printf '%q ' "$@"
 }
 
-run_argv_as_sandbox() {
+run_argv_as_root() {
   local quoted
   quoted="$(quote_args "$@")"
-  run_as_sandbox "exec ${quoted}"
+  run_as_root "exec ${quoted}"
 }
 
 rewrite_t3_output() {
@@ -141,12 +143,12 @@ run_doctor() {
 
 run_t3() {
   echo "Starting T3 on $HOST_T3_URL"
-  run_as_sandbox "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
+  run_as_root "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; /opt/ai-sandbox/bin/t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
 }
 
 run_codenomad() {
   echo "Starting CodeNomad on $HOST_CODENOMAD_URL"
-  run_as_sandbox "$(declare -f rewrite_codenomad_output); export CLI_HTTP=true; export CLI_HTTPS=false; export CLI_HOST=0.0.0.0; export CLI_HTTP_PORT='$CONTAINER_CODENOMAD_PORT'; export CLI_WORKSPACE_ROOT='$WORKSPACE_PATH'; export CODENOMAD_SKIP_AUTH=true; codenomad --http=true --https=false --host 0.0.0.0 --http-port '$CONTAINER_CODENOMAD_PORT' --workspace-root '$WORKSPACE_PATH' --dangerously-skip-auth 2>&1 | rewrite_codenomad_output"
+  run_as_root "$(declare -f rewrite_codenomad_output); export CLI_HTTP=true; export CLI_HTTPS=false; export CLI_HOST=0.0.0.0; export CLI_HTTP_PORT='$CONTAINER_CODENOMAD_PORT'; export CLI_WORKSPACE_ROOT='$WORKSPACE_PATH'; export CODENOMAD_SKIP_AUTH=true; /opt/ai-sandbox/bin/codenomad --http=true --https=false --host 0.0.0.0 --http-port '$CONTAINER_CODENOMAD_PORT' --workspace-root '$WORKSPACE_PATH' --dangerously-skip-auth 2>&1 | rewrite_codenomad_output"
 }
 
 get_paseo_relay_flag() {
@@ -319,7 +321,7 @@ run_paseo() {
   PASEO_RELAY_FLAG="$(get_paseo_relay_flag)"
 
   echo "Starting Paseo on $HOST_PASEO_ADDRESS"
-  run_as_sandbox "$(declare -f rewrite_paseo_output cleanup_paseo_daemon ensure_paseo_workspace_registry); trap cleanup_paseo_daemon INT TERM EXIT; cleanup_paseo_daemon; export PASEO_HOME=/state/data/paseo; ensure_paseo_workspace_registry; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground $PASEO_RELAY_FLAG > >(rewrite_paseo_output) 2>&1 & paseo_pid=\$!; wait \"\$paseo_pid\""
+  run_as_root "$(declare -f rewrite_paseo_output cleanup_paseo_daemon ensure_paseo_workspace_registry); trap cleanup_paseo_daemon INT TERM EXIT; cleanup_paseo_daemon; export PASEO_HOME=/state/data/paseo; ensure_paseo_workspace_registry; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; /opt/ai-sandbox/bin/paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground $PASEO_RELAY_FLAG > >(rewrite_paseo_output) 2>&1 & paseo_pid=\$!; wait \"\$paseo_pid\""
 }
 
 dispatch() {
@@ -332,19 +334,19 @@ dispatch() {
       ;;
     shell)
       print_banner
-      run_as_sandbox "exec bash -il"
+      run_as_root "exec bash -il"
       ;;
     codex)
-      run_argv_as_sandbox codex "$@"
+      run_argv_as_root /opt/ai-sandbox/bin/codex "$@"
       ;;
     gemini)
-      run_argv_as_sandbox gemini "$@"
+      run_argv_as_root /opt/ai-sandbox/bin/gemini "$@"
       ;;
     copilot)
-      run_argv_as_sandbox copilot "$@"
+      run_argv_as_root /opt/ai-sandbox/bin/copilot "$@"
       ;;
     opencode)
-      run_argv_as_sandbox opencode "$@"
+      run_argv_as_root /opt/ai-sandbox/bin/opencode "$@"
       ;;
     codenomad)
       run_codenomad "$@"
@@ -356,13 +358,13 @@ dispatch() {
       run_t3 "$@"
       ;;
     doctor)
-      run_as_sandbox "$(declare -f run_doctor); run_doctor"
+      run_as_root "$(declare -f run_doctor); run_doctor"
       ;;
     reset-config)
       reset_config
       ;;
     *)
-      run_argv_as_sandbox "$cmd" "$@"
+      run_argv_as_root "$cmd" "$@"
       ;;
   esac
 }

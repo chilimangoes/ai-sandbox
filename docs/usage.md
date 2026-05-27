@@ -63,21 +63,21 @@ Install:
 Notes:
 
 - The launcher passes `LOCAL_UID` and `LOCAL_GID` into the container.
-- Files created in `/workspace/<project-folder-slug>` should map back to the invoking Linux user cleanly.
+- Shell and tool commands run as root inside the sandbox, so files created in `/workspace/<project-folder-slug>` may be owned by root on Linux hosts.
 
 ## T3 access
 
 - Default host URL: `http://127.0.0.1:3773`
 - If that port is occupied, the launcher auto-selects the next free port unless `--t3-port` is supplied.
 - The shell banner prints the chosen URL for the current workspace sandbox.
-- The URL is not live in plain shell mode; run `ai-sandbox t3` before opening it in a browser.
+- The URL is not live in plain shell mode; run `ai-sandbox t3` or `t3` inside the sandbox shell before opening it in a browser.
 
 ## CodeNomad access
 
 - Default host URL: `http://127.0.0.1:9899`
 - If that port is occupied, the launcher auto-selects the next free port unless `--codenomad-port` is supplied.
 - The shell banner prints the chosen URL for the current workspace sandbox.
-- The URL is not live in plain shell mode; run `ai-sandbox codenomad` before opening it in a browser.
+- The URL is not live in plain shell mode; run `ai-sandbox codenomad` or `codenomad` inside the sandbox shell before opening it in a browser.
 - CodeNomad runs inside the sandbox and uses the sandbox's `opencode` binary, config, auth, and workspace files.
 
 ## Paseo access
@@ -85,7 +85,7 @@ Notes:
 - Default host daemon address: `127.0.0.1:6767`
 - If that port is occupied, the launcher auto-selects the next free port unless `--paseo-port` is supplied.
 - The shell banner prints the chosen address for the current workspace sandbox.
-- Run `ai-sandbox paseo` to start the daemon in the foreground.
+- Run `ai-sandbox paseo` or `paseo` inside the sandbox shell to start the daemon in the foreground.
 - Use the Paseo CLI, app, or other clients to connect to that daemon.
 - Paseo runs inside the sandbox and orchestrates the sandbox's installed coding CLIs.
 - The sandbox starts Paseo with `--no-relay` by default so daemon traffic stays local to the host/container boundary.

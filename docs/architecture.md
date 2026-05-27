@@ -126,7 +126,8 @@ Maintenance commands:
 - Base image: Debian Bookworm slim
 - Runtime: Node.js 22
 - Common packages: `bash`, `curl`, `git`, `jq`, `less`, `procps`, `ripgrep`, `sudo`, `unzip`, `ca-certificates`
-- Runtime user: non-root `sandbox` with passwordless `sudo` for in-container elevation
+- Runtime user: root for shell and tool commands, with `HOME=/home/sandbox` so persisted auth/config paths remain stable
+- Command shims: the installed tool commands in the shell route back through `/opt/ai-sandbox/entrypoint.sh`, while the entrypoint calls the real binaries from `/opt/ai-sandbox/bin`
 
 The image installs:
 
@@ -136,7 +137,7 @@ The image installs:
 - `opencode-ai`
 - `@neuralnomads/codenomad`
 - `@getpaseo/cli`
-- a lightweight `t3` launcher path via `npx t3`
+- `t3`
 
 ## Compatibility notes
 
@@ -149,4 +150,4 @@ Windows-first design points:
 Linux notes:
 
 - The shell launcher follows the same naming and lifecycle rules.
-- The launcher passes the host UID/GID to the container so files written into `/workspace/<project-folder-slug>` map cleanly on Linux hosts.
+- The launcher still passes the host UID/GID for compatibility with the persisted `sandbox` home layout, but shell and tool commands run as root inside the sandbox.
