@@ -2,7 +2,7 @@
 
 `ai-sandbox` is a Docker-only workspace sandbox for running AI coding tools against the current project directory on Windows and Linux hosts.
 
-## v1 behavior
+## Overview
 
 - `ai-sandbox` opens an interactive shell in `/workspace/<project-folder-slug>`
 - shell startup prints a short banner with `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, and `paseo`, plus the selected T3, CodeNomad, Paseo, and published web-port addresses
@@ -11,6 +11,7 @@
 - `ai-sandbox paseo` starts the Paseo daemon for the current terminal session; ending the session stops Paseo; public relay connectivity is disabled by default
 - each sandbox container publishes T3, CodeNomad, Paseo, and web app ports on one workspace-specific `127.x.y.z` host address with matching host/container ports
 - web app ports currently exposed are 8080 and 3000
+- optional supplemental host folders can be mounted read-only or read-write under `/supplemental`
 - auth persists only inside Docker volumes owned by the sandbox
 - updates happen only through explicit `--update` or `--rebuild`
 
@@ -46,8 +47,8 @@ Unsupported in v1:
 
 Further details live in:
 
-- [docs/architecture.md](docs/architecture.md)
 - [docs/usage.md](docs/usage.md)
+- [docs/architecture.md](docs/architecture.md)
 - [docs/auth.md](docs/auth.md)
 - [docs/config-management.md](docs/config-management.md)
 - [docs/troubleshooting.md](docs/troubleshooting.md)

@@ -11,7 +11,7 @@ DEFAULT_ALT_HTTP_CONTAINER_PORT=8080
 DEFAULT_APP_CONTAINER_PORT=3000
 
 usage() {
-  echo "Usage: ai-sandbox [--update] [--rebuild] [shell|codex|gemini|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
+  echo "Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|gemini|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
 }
 
 assert_docker() {
@@ -58,6 +58,10 @@ container_image_id() {
   docker inspect --format '{{.Image}}' "$1" 2>/dev/null || true
 }
 
+container_supplemental_signature() {
+  docker inspect --format '{{ index .Config.Labels "ai-sandbox.supplemental-folders" }}' "$1" 2>/dev/null || true
+}
+
 ensure_volume() {
   local name="$1"
   docker volume inspect "$name" >/dev/null 2>&1 || docker volume create "$name" >/dev/null
@@ -82,6 +86,139 @@ existing_host_port() {
   [[ "$output" =~ :([0-9]+)$ ]] && echo "${BASH_REMATCH[1]}"
 }
 
+container_folder_name_valid() {
+  local name="$1"
+  [[ -n "$name" ]] || return 1
+  [[ "$name" == "${name#"${name%%[![:space:]]*}"}" ]] || return 1
+  [[ "$name" == "${name%"${name##*[![:space:]]}"}" ]] || return 1
+  [[ "$name" != *"/"* && "$name" != *"\\"* && "$name" != *":"* && "$name" != *"*"* &&
+    "$name" != *"?"* && "$name" != *"\""* && "$name" != *"<"* && "$name" != *">"* &&
+    "$name" != *"|"* ]]
+}
+
+split_supplemental_folder_line() {
+  local line="$1"
+  local path="$2"
+  local line_number="$3"
+  [[ -n "${line//[[:space:]]/}" ]] || return 1
+  local trimmed="${line#"${line%%[![:space:]]*}"}"
+  [[ "$trimmed" != \#* ]] || return 1
+
+  local mode="ro"
+  local without_mode="$line"
+  if [[ "$line" == *"|"* ]]; then
+    local candidate_mode="${line##*|}"
+    if [[ "$candidate_mode" == "ro" || "$candidate_mode" == "rw" ]]; then
+      mode="$candidate_mode"
+      without_mode="${line%|*}"
+    fi
+  fi
+
+  if [[ "$without_mode" != *"|"* ]]; then
+    echo "Invalid supplemental folder entry in ${path}:${line_number}. Expected host_path|container_name|mode." >&2
+    exit 1
+  fi
+
+  local host_path="${without_mode%|*}"
+  local name="${without_mode##*|}"
+  if ! container_folder_name_valid "$name"; then
+    echo "Invalid supplemental folder target '${name}' in ${path}:${line_number}. It must be one path segment and cannot contain / \\ : * ? \" < > |." >&2
+    exit 1
+  fi
+
+  if [[ "$mode" != "ro" && "$mode" != "rw" ]]; then
+    echo "Invalid supplemental folder mode '${mode}' in ${path}:${line_number}. Expected ro or rw." >&2
+    exit 1
+  fi
+
+  SPLIT_HOST_PATH="$(cd "$host_path" 2>/dev/null && pwd || true)"
+  if [[ -z "$SPLIT_HOST_PATH" || ! -d "$SPLIT_HOST_PATH" ]]; then
+    echo "Supplemental folder path from config does not exist or is not a directory: ${host_path}" >&2
+    exit 1
+  fi
+  SPLIT_CONTAINER_NAME="$name"
+  SPLIT_MODE="$mode"
+}
+
+read_supplemental_folder_config() {
+  local path="$1"
+  local scope="$2"
+  local -n out_hosts="$3"
+  local -n out_names="$4"
+  local -n out_modes="$5"
+  [[ -f "$path" ]] || return 0
+
+  declare -A seen=()
+  local line line_number=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_number=$((line_number + 1))
+    if split_supplemental_folder_line "$line" "$path" "$line_number"; then
+      if [[ -n "${seen[$SPLIT_CONTAINER_NAME]:-}" ]]; then
+        echo "Duplicate supplemental folder target /supplemental/${SPLIT_CONTAINER_NAME} in ${scope} config: ${path}" >&2
+        exit 1
+      fi
+      seen["$SPLIT_CONTAINER_NAME"]="true"
+      out_hosts+=("$SPLIT_HOST_PATH")
+      out_names+=("$SPLIT_CONTAINER_NAME")
+      out_modes+=("$SPLIT_MODE")
+    fi
+  done <"$path"
+}
+
+supplemental_mount_args() {
+  SUPPLEMENTAL_MOUNT_ARGS=()
+  SUPPLEMENTAL_WARNINGS=()
+  local global_path="${HOME}/.ai-sandbox/supplemental-folders.config"
+  local local_path="${WORKSPACE_PATH}/.ai-sandbox/supplemental-folders.config"
+  local global_hosts=() global_names=() global_modes=()
+  local local_hosts=() local_names=() local_modes=()
+  read_supplemental_folder_config "$global_path" "global" global_hosts global_names global_modes
+  read_supplemental_folder_config "$local_path" "local" local_hosts local_names local_modes
+
+  declare -A host_by_name=()
+  declare -A mode_by_name=()
+  local names=()
+  local i
+  for i in "${!global_names[@]}"; do
+    names+=("${global_names[$i]}")
+    host_by_name["${global_names[$i]}"]="${global_hosts[$i]}"
+    mode_by_name["${global_names[$i]}"]="${global_modes[$i]}"
+  done
+
+  for i in "${!local_names[@]}"; do
+    local name="${local_names[$i]}"
+    if [[ -n "${host_by_name[$name]:-}" ]]; then
+      SUPPLEMENTAL_WARNINGS+=("local supplemental folder overrides global mapping for /supplemental/${name}: using ${local_hosts[$i]}, ignoring ${host_by_name[$name]}")
+    else
+      names+=("$name")
+    fi
+    host_by_name["$name"]="${local_hosts[$i]}"
+    mode_by_name["$name"]="${local_modes[$i]}"
+  done
+
+  local signature_text=""
+  local sorted_names
+  sorted_names="$(printf '%s\n' "${names[@]}" | sort)"
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    SUPPLEMENTAL_MOUNT_ARGS+=("-v" "${host_by_name[$name]}:/supplemental/${name}:${mode_by_name[$name]}")
+    signature_text+="${host_by_name[$name]}|${name}|${mode_by_name[$name]}"$'\n'
+  done <<<"$sorted_names"
+  SUPPLEMENTAL_SIGNATURE="$(printf '%s' "$signature_text" | sha256sum | awk '{print $1}')"
+}
+
+print_supplemental_warnings() {
+  ((${#SUPPLEMENTAL_WARNINGS[@]} == 0)) && return 0
+  local warning
+  for warning in "${SUPPLEMENTAL_WARNINGS[@]}"; do
+    if [[ -t 2 ]]; then
+      printf '\033[33mWarning: %s\033[0m\n' "$warning" >&2
+    else
+      printf 'Warning: %s\n' "$warning" >&2
+    fi
+  done
+}
+
 ensure_container() {
   local current_image_id
   current_image_id="$(image_id "$IMAGE_TAG")"
@@ -89,8 +226,10 @@ ensure_container() {
 
   if container_exists "$CONTAINER_NAME"; then
     local running_image_id
+    local running_supplemental_signature
     local recreate_needed="false"
     running_image_id="$(container_image_id "$CONTAINER_NAME")"
+    running_supplemental_signature="$(container_supplemental_signature "$CONTAINER_NAME")"
     local current_t3_host_port
     current_t3_host_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
     local current_codenomad_port
@@ -102,6 +241,9 @@ ensure_container() {
     local current_app_port
     current_app_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_APP_CONTAINER_PORT")"
     if [[ "$FORCE_RECREATE" == "true" || "$running_image_id" != "$current_image_id" ]]; then
+      recreate_needed="true"
+    fi
+    if [[ "$running_supplemental_signature" != "$SUPPLEMENTAL_SIGNATURE" ]]; then
       recreate_needed="true"
     fi
     if [[ -n "$current_t3_host_port" && "$current_t3_host_port" != "$DEFAULT_T3_CONTAINER_PORT" ]]; then
@@ -134,6 +276,7 @@ ensure_container() {
       --name "$CONTAINER_NAME" \
       --label "ai-sandbox.workspace=${WORKSPACE_PATH}" \
       --label "ai-sandbox.hash=${WORKSPACE_HASH}" \
+      --label "ai-sandbox.supplemental-folders=${SUPPLEMENTAL_SIGNATURE}" \
       -p "${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}:${DEFAULT_T3_CONTAINER_PORT}" \
       -p "${HOST_ADDRESS}:${DEFAULT_CODENOMAD_CONTAINER_PORT}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
       -p "${HOST_ADDRESS}:${DEFAULT_PASEO_CONTAINER_PORT}:${DEFAULT_PASEO_CONTAINER_PORT}" \
@@ -162,6 +305,7 @@ ensure_container() {
       -v "${AUTH_VOLUME}:/state/auth" \
       -v "${DATA_VOLUME}:/state/data" \
       -v "${CACHE_VOLUME}:/state/cache" \
+      "${SUPPLEMENTAL_MOUNT_ARGS[@]}" \
       "$IMAGE_TAG" \
       daemon >/dev/null
   elif ! container_running "$CONTAINER_NAME"; then
@@ -219,6 +363,7 @@ UPDATE="false"
 REBUILD="false"
 FORCE_RECREATE="false"
 POSITIONALS=()
+ADD_FOLDER_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -235,6 +380,12 @@ while [[ $# -gt 0 ]]; do
       FORCE_RECREATE="true"
       shift
       ;;
+    --add-folder)
+      shift
+      [[ $# -gt 0 ]] || { echo "Missing folder path for --add-folder." >&2; exit 1; }
+      ADD_FOLDER_ARGS=("$@")
+      break
+      ;;
     --*)
       echo "Unknown option: $1" >&2
       exit 1
@@ -243,8 +394,13 @@ while [[ $# -gt 0 ]]; do
       POSITIONALS+=("$1")
       shift
       ;;
-  esac
+    esac
 done
+
+if [[ ${#ADD_FOLDER_ARGS[@]} -gt 0 ]]; then
+  bash "${REPO_ROOT}/scripts/add-supplemental-folder.sh" "${ADD_FOLDER_ARGS[@]}"
+  exit $?
+fi
 
 COMMAND="${POSITIONALS[0]:-shell}"
 COMMAND_ARGS=("${POSITIONALS[@]:1}")
@@ -261,6 +417,8 @@ AUTH_VOLUME="${META[6]}"
 DATA_VOLUME="${META[7]}"
 CACHE_VOLUME="${META[8]}"
 HOST_ADDRESS="${META[9]}"
+
+supplemental_mount_args
 
 if [[ -z "$(image_id "$IMAGE_TAG")" || "$UPDATE" == "true" || "$REBUILD" == "true" ]]; then
   build_image
@@ -287,6 +445,7 @@ if [[ "$REBUILD" == "true" ]]; then
 fi
 
 ensure_container
+print_supplemental_warnings
 
 case "$COMMAND" in
   reset-config)

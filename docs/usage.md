@@ -13,6 +13,7 @@ From a workspace directory:
 - `ai-sandbox t3`: start T3 in the sandbox for the current terminal session
 - `ai-sandbox codenomad`: start CodeNomad in the sandbox for the current terminal session
 - `ai-sandbox paseo`: start the Paseo daemon in the sandbox for the current terminal session
+- `ai-sandbox --add-folder <path>`: add a supplemental host folder mapping under `/supplemental`
 
 Maintenance:
 
@@ -91,3 +92,31 @@ Notes:
 - All published services use the same workspace-specific host address.
 - Container ports `8080` and `3000` are published on matching host ports at that address.
 - The shell banner prints all host-visible URLs for the current workspace sandbox.
+
+## Supplemental folders
+
+Supplemental folders let you bind-mount host directories into the sandbox outside the main workspace. They are mounted in the container under `/supplemental/<name>`.
+
+Mappings can be local to the current workspace or global to the current host user. Local mappings override global mappings with the same `/supplemental/<name>` target and print a warning.
+
+Supplemental folder definitions for the current workspace are stored in `<workspace>/.ai-sandbox/supplemental-folders.config` and globally under `~/.ai-sandbox/supplemental-folders.config`
+
+#### Parameters
+- `--as <mount-point-alias>`: Change the name of the mount point within the container. If `--as` is omitted, the container folder name defaults to the host folder name. Supplemental folders are read-only by default.
+- `--global`: This flag adds the supplimental folder definition to the global config rather than the local workspace config. Entries are added to the local config by default.
+- `--read-write`: Use this flag to allow the sandbox to modify the host folder. Supplemental folders are added as read-only by default.
+
+#### Interactive example:
+
+```powershell
+ai-sandbox --add-folder "D:\My_Project_Folder\skills"
+```
+
+#### Scripted examples:
+
+```powershell
+ai-sandbox --add-folder "D:\My_Project_Folder\skills" --as my-skills --global --read-only
+ai-sandbox --add-folder "D:\Shared\scratch" --as scratch --local --read-write --yes
+```
+
+**NOTE:** New or changed supplemental folders require recreating the workspace container. `--add-folder` asks whether to run `ai-sandbox --rebuild` after updating the config.

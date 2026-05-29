@@ -13,6 +13,7 @@ Three state classes matter in v1:
 - Default presets: version-controlled files in this repo and image-baked copies under `/opt/ai-sandbox/defaults/configs`
 - Persisted config: mutable files under `/state/config`
 - Persisted runtime state: auth, session data, and caches under `/state/auth`, `/state/data`, and `/state/cache`
+- Host supplemental folder config: local or global host files that define extra bind mounts under `/supplemental`
 
 ## Initialization rules
 
@@ -59,6 +60,38 @@ On normal later launches:
 
 - runs the sandbox's built-in diagnostics inside the current workspace container
 - preserves the container and all state volumes
+
+## Supplemental folder config
+
+Supplemental folder mappings are host-side config because Docker bind mounts must be known when the container is created.
+
+Local workspace config:
+
+- `<workspace>/.ai-sandbox/supplemental-folders.config`
+
+Global user config:
+
+- Windows: `%USERPROFILE%\.ai-sandbox\supplemental-folders.config`
+- Linux: `~/.ai-sandbox/supplemental-folders.config`
+
+Each non-empty, non-comment line uses:
+
+```text
+host_path|container_name|mode
+```
+
+`mode` is optional and defaults to `ro`. Valid modes are `ro` and `rw`.
+
+Example:
+
+```text
+D:\My_Project_Folder\skills|my-skills|ro
+/home/me/shared-scratch|scratch|rw
+```
+
+Global mappings load first. Local mappings load second and override global mappings that target the same `/supplemental/<container_name>`.
+
+Changing supplemental folder config recreates the workspace container on the next launch because the launcher stores a hash of the resolved supplemental mounts in the container's `ai-sandbox.supplemental-folders` label.
 
 ## Tool inventory
 

@@ -17,7 +17,7 @@ $DefaultAppContainerPort = 3000
 
 function Write-Usage {
     @"
-Usage: ai-sandbox [--update] [--rebuild] [shell|codex|gemini|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]
+Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|gemini|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]
 "@
 }
 
@@ -69,14 +69,142 @@ function Get-WorkspaceMeta {
     }
 }
 
+function Test-ContainerFolderName {
+    param([string]$Name)
+    return -not [string]::IsNullOrWhiteSpace($Name) -and
+        $Name.Trim() -eq $Name -and
+        $Name -notmatch '[\\/:\*\?"<>\|]'
+}
+
+function Split-SupplementalFolderLine {
+    param(
+        [string]$Line,
+        [string]$Path,
+        [int]$LineNumber
+    )
+
+    $trimmed = $Line.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith("#")) {
+        return $null
+    }
+
+    $mode = "ro"
+    $withoutMode = $trimmed
+    $modeSeparator = $trimmed.LastIndexOf('|')
+    if ($modeSeparator -ge 0) {
+        $candidateMode = $trimmed.Substring($modeSeparator + 1)
+        if ($candidateMode -eq "ro" -or $candidateMode -eq "rw") {
+            $mode = $candidateMode
+            $withoutMode = $trimmed.Substring(0, $modeSeparator)
+        }
+    }
+
+    $nameSeparator = $withoutMode.LastIndexOf('|')
+    if ($nameSeparator -lt 0) {
+        throw "Invalid supplemental folder entry in ${Path}:${LineNumber}. Expected host_path|container_name|mode."
+    }
+
+    $hostPath = $withoutMode.Substring(0, $nameSeparator)
+    $name = $withoutMode.Substring($nameSeparator + 1)
+    if (-not (Test-ContainerFolderName -Name $name)) {
+        throw "Invalid supplemental folder target '$name' in ${Path}:${LineNumber}. It must be one path segment and cannot contain / \ : * ? `" < > |."
+    }
+
+    if ($mode -ne "ro" -and $mode -ne "rw") {
+        throw "Invalid supplemental folder mode '$mode' in ${Path}:${LineNumber}. Expected ro or rw."
+    }
+
+    [pscustomobject]@{
+        HostPath = [System.IO.Path]::GetFullPath($hostPath)
+        Name = $name
+        Mode = $mode
+        Source = $Path
+    }
+}
+
+function Read-SupplementalFolderConfig {
+    param(
+        [string]$Path,
+        [string]$Scope
+    )
+
+    $entries = @()
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $entries
+    }
+
+    $seen = @{}
+    $lines = @(Get-Content -LiteralPath $Path)
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $entry = Split-SupplementalFolderLine -Line $lines[$i] -Path $Path -LineNumber ($i + 1)
+        if (-not $entry) { continue }
+        if ($seen.ContainsKey($entry.Name)) {
+            throw "Duplicate supplemental folder target /supplemental/$($entry.Name) in $scope config: $Path"
+        }
+        if (-not (Test-Path -LiteralPath $entry.HostPath -PathType Container)) {
+            throw "Supplemental folder path from $scope config does not exist or is not a directory: $($entry.HostPath)"
+        }
+        $seen[$entry.Name] = $true
+        $entries += $entry
+    }
+    return $entries
+}
+
+function Get-Sha256Text {
+    param([string]$Value)
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+        return (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join "")
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+function Get-SupplementalFolderMounts {
+    param([string]$WorkspacePath)
+
+    $globalPath = Join-Path $HOME ".ai-sandbox\supplemental-folders.config"
+    $localPath = Join-Path $WorkspacePath ".ai-sandbox\supplemental-folders.config"
+    $globalEntries = Read-SupplementalFolderConfig -Path $globalPath -Scope "global"
+    $localEntries = Read-SupplementalFolderConfig -Path $localPath -Scope "local"
+    $byName = [ordered]@{}
+    $warnings = New-Object System.Collections.Generic.List[string]
+
+    foreach ($entry in $globalEntries) {
+        $byName[$entry.Name] = $entry
+    }
+
+    foreach ($entry in $localEntries) {
+        if ($byName.Contains($entry.Name)) {
+            $globalEntry = $byName[$entry.Name]
+            $warnings.Add("local supplemental folder overrides global mapping for /supplemental/$($entry.Name): using $($entry.HostPath), ignoring $($globalEntry.HostPath)")
+        }
+        $byName[$entry.Name] = $entry
+    }
+
+    $mounts = @($byName.Values)
+    $signatureText = (($mounts | Sort-Object Name | ForEach-Object { "$($_.HostPath)|$($_.Name)|$($_.Mode)" }) -join "`n")
+    [pscustomobject]@{
+        Mounts = $mounts
+        Signature = Get-Sha256Text -Value $signatureText
+        Warnings = $warnings
+    }
+}
+
 function Start-Container {
-    param([pscustomobject]$Meta)
+    param(
+        [pscustomobject]$Meta,
+        [pscustomobject]$SupplementalFolders
+    )
 
     $dockerArgs = @(
         "run", "-d",
         "--name", $Meta.Container,
         "--label", "ai-sandbox.workspace=$($Meta.Workspace)",
         "--label", "ai-sandbox.hash=$($Meta.Hash)",
+        "--label", "ai-sandbox.supplemental-folders=$($SupplementalFolders.Signature)",
         "-p", "$($Meta.HostAddress):${DefaultT3ContainerPort}:${DefaultT3ContainerPort}",
         "-p", "$($Meta.HostAddress):${DefaultCodeNomadContainerPort}:${DefaultCodeNomadContainerPort}",
         "-p", "$($Meta.HostAddress):${DefaultPaseoContainerPort}:${DefaultPaseoContainerPort}",
@@ -104,7 +232,14 @@ function Start-Container {
         "-v", "$($Meta.ConfigVolume):/state/config",
         "-v", "$($Meta.AuthVolume):/state/auth",
         "-v", "$($Meta.DataVolume):/state/data",
-        "-v", "$($Meta.CacheVolume):/state/cache",
+        "-v", "$($Meta.CacheVolume):/state/cache"
+    )
+
+    foreach ($mount in $SupplementalFolders.Mounts) {
+        $dockerArgs += @("-v", "$($mount.HostPath):/supplemental/$($mount.Name):$($mount.Mode)")
+    }
+
+    $dockerArgs += @(
         $ImageTag,
         "daemon"
     )
@@ -146,6 +281,19 @@ function Get-ContainerImageId {
     $PSNativeCommandUseErrorActionPreference = $false
     try {
         $value = docker inspect --format "{{.Image}}" $Name 2>$null
+    } finally {
+        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+    }
+    if ($LASTEXITCODE -ne 0) { return $null }
+    return $value.Trim()
+}
+
+function Get-ContainerSupplementalFolderSignature {
+    param([string]$Name)
+    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+        $value = docker inspect --format '{{ index .Config.Labels "ai-sandbox.supplemental-folders" }}' $Name 2>$null
     } finally {
         $PSNativeCommandUseErrorActionPreference = $previousNativePreference
     }
@@ -267,6 +415,7 @@ function Get-ExistingHostPort {
 function Ensure-Container {
     param(
         [pscustomobject]$Meta,
+        [pscustomobject]$SupplementalFolders,
         [switch]$ForceRecreate
     )
 
@@ -277,6 +426,7 @@ function Ensure-Container {
 
     if (Test-ContainerExists -Name $Meta.Container) {
         $containerImageId = Get-ContainerImageId -Name $Meta.Container
+        $containerSupplementalSignature = Get-ContainerSupplementalFolderSignature -Name $Meta.Container
         $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
         $existingCodeNomadPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultCodeNomadContainerPort
         $existingPaseoPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultPaseoContainerPort
@@ -284,6 +434,7 @@ function Ensure-Container {
         $existingAppPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAppContainerPort
         if ($ForceRecreate -or
             $containerImageId -ne $currentImageId -or
+            $containerSupplementalSignature -ne $SupplementalFolders.Signature -or
             ($existingT3Port -and $existingT3Port -ne $DefaultT3ContainerPort) -or
             ($existingCodeNomadPort -and $existingCodeNomadPort -ne $DefaultCodeNomadContainerPort) -or
             ($existingPaseoPort -and $existingPaseoPort -ne $DefaultPaseoContainerPort) -or
@@ -299,7 +450,7 @@ function Ensure-Container {
     Ensure-Volume -Name $Meta.CacheVolume
 
     if (-not (Test-ContainerExists -Name $Meta.Container)) {
-        Start-Container -Meta $Meta
+        Start-Container -Meta $Meta -SupplementalFolders $SupplementalFolders
     } elseif (-not (Test-ContainerRunning -Name $Meta.Container)) {
         docker start $Meta.Container | Out-Null
         if ($LASTEXITCODE -ne 0) {
@@ -349,6 +500,7 @@ function Exec-InContainer {
 $update = $false
 $rebuild = $false
 $positionals = New-Object System.Collections.Generic.List[string]
+$addFolderArgs = $null
 
 for ($i = 0; $i -lt $ArgsList.Count; $i++) {
     switch ($ArgsList[$i]) {
@@ -362,6 +514,13 @@ for ($i = 0; $i -lt $ArgsList.Count; $i++) {
         "--rebuild" {
             $rebuild = $true
         }
+        "--add-folder" {
+            if ($i + 1 -ge $ArgsList.Count) {
+                throw "Missing folder path for --add-folder."
+            }
+            $addFolderArgs = @($ArgsList[($i + 1)..($ArgsList.Count - 1)])
+            $i = $ArgsList.Count
+        }
         default {
             if ($ArgsList[$i].StartsWith("--")) {
                 throw "Unknown option: $($ArgsList[$i])"
@@ -371,11 +530,18 @@ for ($i = 0; $i -lt $ArgsList.Count; $i++) {
     }
 }
 
+if ($addFolderArgs) {
+    $helper = Join-Path $RepoRoot "scripts\add-supplemental-folder.ps1"
+    & $helper @addFolderArgs
+    exit $LASTEXITCODE
+}
+
 $command = if ($positionals.Count -gt 0) { $positionals[0] } else { "shell" }
 $commandArgs = if ($positionals.Count -gt 1) { $positionals[1..($positionals.Count - 1)] } else { @() }
 
 Assert-Docker
 $meta = Get-WorkspaceMeta -WorkspacePath (Get-Location).Path
+$supplementalFolders = Get-SupplementalFolderMounts -WorkspacePath $meta.Workspace
 
 if (-not (Get-ImageId -Tag $ImageTag) -or $update -or $rebuild) {
     Build-Image -Pull
@@ -405,7 +571,11 @@ if ($rebuild) {
     Remove-ContainerIfExists -Name $meta.Container
 }
 
-Ensure-Container -Meta $meta -ForceRecreate:$rebuild
+Ensure-Container -Meta $meta -SupplementalFolders $supplementalFolders -ForceRecreate:$rebuild
+
+foreach ($warning in $supplementalFolders.Warnings) {
+    Write-Warning $warning
+}
 
 switch ($command) {
     "reset-config" {
