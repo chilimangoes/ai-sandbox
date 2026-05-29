@@ -293,12 +293,17 @@ function Get-ContainerSupplementalFolderSignature {
     $previousNativePreference = $PSNativeCommandUseErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
     try {
-        $value = docker inspect --format '{{ index .Config.Labels "ai-sandbox.supplemental-folders" }}' $Name 2>$null
+        $value = docker inspect --format '{{ json .Config.Labels }}' $Name 2>$null
     } finally {
         $PSNativeCommandUseErrorActionPreference = $previousNativePreference
     }
     if ($LASTEXITCODE -ne 0) { return $null }
-    return $value.Trim()
+    $json = $value.Trim()
+    if ([string]::IsNullOrWhiteSpace($json) -or $json -eq "null") { return $null }
+    $labels = $json | ConvertFrom-Json
+    $property = $labels.PSObject.Properties["ai-sandbox.supplemental-folders"]
+    if (-not $property) { return $null }
+    return "$($property.Value)"
 }
 
 function Get-ImageId {
