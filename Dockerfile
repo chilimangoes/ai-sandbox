@@ -29,9 +29,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @openai/codex @google/gemini-cli @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli \
+RUN npm install -g @openai/codex @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli \
+    && curl -fsSL https://antigravity.google/cli/install.sh | bash \
+    && ln -sf /root/.local/bin/agy /usr/local/bin/agy \
+    && command -v agy >/dev/null \
     && mkdir -p "$AI_SANDBOX_REAL_BIN_DIR" \
-    && for command in codex gemini copilot opencode t3 codenomad paseo; do \
+    && for command in codex agy copilot opencode t3 codenomad paseo; do \
         shim_path="$(command -v "$command")"; \
         real_path="$(readlink -f "$shim_path")"; \
         if [ "$real_path" = "$shim_path" ]; then \

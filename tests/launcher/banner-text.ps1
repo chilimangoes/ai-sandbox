@@ -19,6 +19,10 @@ if ($banner -notmatch 'opencode') {
     throw "Expected banner.txt to mention opencode in the available commands list."
 }
 
+if ($banner -notmatch 'agy') {
+    throw "Expected banner.txt to mention agy in the available commands list."
+}
+
 if ($entrypoint -notmatch 'opencode') {
     throw "Expected docker/entrypoint.sh to mention opencode in the shell banner or dispatch logic."
 }

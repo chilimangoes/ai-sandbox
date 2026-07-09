@@ -7,7 +7,7 @@ mkdir -p \
   /state/data \
   /state/cache \
   /state/config/codex \
-  /state/config/gemini \
+  /state/config/antigravity \
   /state/config/copilot \
   /state/config/opencode \
   /state/config/codenomad \
@@ -15,12 +15,12 @@ mkdir -p \
   /state/config/t3 \
   /state/config/shared \
   /state/auth/codex \
-  /state/auth/gemini \
+  /state/auth/antigravity \
   /state/auth/copilot \
   /state/auth/opencode \
   /state/data/codex \
-  /state/data/gemini/home \
-  /state/data/gemini \
+  /state/data/antigravity/home \
+  /state/data/antigravity \
   /state/data/copilot \
   /state/data/opencode \
   /state/data/codenomad \
@@ -39,10 +39,10 @@ ln -sfn /state/config/codex/config.toml /home/sandbox/.codex/config.toml
 ln -sfn /state/auth/codex/auth.json /home/sandbox/.codex/auth.json
 ln -sfn /state/data/codex/sessions /home/sandbox/.codex/sessions
 
-rm -rf /home/sandbox/.gemini
-ln -sfn /state/data/gemini/home /home/sandbox/.gemini
-ln -sfn /state/config/gemini/settings.json /state/data/gemini/home/settings.json
-ln -sfn /state/auth/gemini /state/data/gemini/home/auth
+rm -rf /home/sandbox/.antigravity
+ln -sfn /state/data/antigravity/home /home/sandbox/.antigravity
+ln -sfn /state/config/antigravity/settings.json /state/data/antigravity/home/settings.json
+ln -sfn /state/auth/antigravity /state/data/antigravity/home/auth
 
 ln -sfn /state/config/copilot/config.json /home/sandbox/.copilot/config.json
 ln -sfn /state/auth/copilot /home/sandbox/.copilot/auth

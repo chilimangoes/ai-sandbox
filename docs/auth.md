@@ -9,11 +9,11 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 - Codex auth is stored under `/state/auth/codex`.
 - T3 depends on a working Codex login because it uses `codex app-server`.
 
-## Gemini
+## Antigravity
 
-- Authenticate inside the sandbox by following the Gemini CLI login flow.
-- Gemini preset files live under `/state/config/gemini`.
-- Gemini auth artifacts stay under `/state/auth/gemini`.
+- Authenticate inside the sandbox by following the Antigravity CLI login flow.
+- Antigravity preset files live under `/state/config/antigravity`.
+- Antigravity auth artifacts stay under `/state/auth/antigravity`.
 
 ## Copilot
 

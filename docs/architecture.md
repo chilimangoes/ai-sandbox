@@ -3,7 +3,7 @@
 ## High-level behavior decisions
 
 - `ai-sandbox` opens an interactive shell by default.
-- Shell mode prints a short banner listing `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, and `paseo`, plus the selected host T3, CodeNomad, and Paseo addresses to use after their service commands start.
+- Shell mode prints a short banner listing `codex`, `agy`, `copilot`, `opencode`, `t3`, `codenomad`, and `paseo`, plus the selected host T3, CodeNomad, and Paseo addresses to use after their service commands start.
 - `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
 - `ai-sandbox codenomad` runs CodeNomad in the foreground for the current session. Closing the terminal stops it.
 - `ai-sandbox paseo` runs the Paseo daemon in the foreground for the current session. Closing the terminal stops the daemon.
@@ -19,7 +19,7 @@ The host launcher is workspace-centric:
 2. Derive a stable workspace slug, short hash, and workspace-specific loopback address from the absolute path.
 3. Build or refresh the shared image when required.
 4. Start one detached workspace-scoped container.
-5. Execute either `shell`, `codex`, `gemini`, `copilot`, `opencode`, `t3`, `codenomad`, or `paseo` inside that container.
+5. Execute either `shell`, `codex`, `agy`, `copilot`, `opencode`, `t3`, `codenomad`, or `paseo` inside that container.
 
 Each workspace gets:
 
@@ -73,7 +73,7 @@ Primary commands:
 - `ai-sandbox`
 - `ai-sandbox shell`
 - `ai-sandbox codex`
-- `ai-sandbox gemini`
+- `ai-sandbox agy`
 - `ai-sandbox copilot`
 - `ai-sandbox opencode`
 - `ai-sandbox t3`
@@ -136,7 +136,7 @@ Maintenance commands:
 The image installs:
 
 - `@openai/codex`
-- `@google/gemini-cli`
+- Antigravity CLI, installed with `curl -fsSL https://antigravity.google/cli/install.sh | bash` and exposed as `agy`
 - `@github/copilot`
 - `opencode-ai`
 - `@neuralnomads/codenomad`

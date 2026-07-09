@@ -13,12 +13,12 @@
 
 ## Tool versions
 
-- `ai-sandbox doctor` reports versions for `codex`, `gemini`, `copilot`, `opencode`, `node`, and Docker.
+- `ai-sandbox doctor` reports versions for `codex`, `agy`, `copilot`, `opencode`, `node`, and Docker.
 
 ## Auth
 
 - `codex` can authenticate and remain logged in across `ai-sandbox rm`.
-- `gemini` can authenticate and remain logged in across `ai-sandbox rm`.
+- `agy` can authenticate and remain logged in across `ai-sandbox rm`.
 - `copilot` can authenticate and remain logged in across `ai-sandbox rm`.
 - `opencode` can authenticate and remain logged in across `ai-sandbox rm`.
 

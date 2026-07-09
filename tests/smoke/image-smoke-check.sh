@@ -2,7 +2,7 @@
 set -euo pipefail
 
 codex --version
-gemini --version
+agy --version
 copilot --version
 opencode --version
 codenomad --version

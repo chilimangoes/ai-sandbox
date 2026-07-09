@@ -11,7 +11,7 @@ if ($dockerfile -notmatch 'AI_SANDBOX_REAL_BIN_DIR=/opt/ai-sandbox/bin') {
     throw "Expected Dockerfile to reserve a real-binary directory for shimmed commands."
 }
 
-foreach ($command in @("codex", "gemini", "copilot", "opencode", "t3", "codenomad", "paseo")) {
+foreach ($command in @("codex", "agy", "copilot", "opencode", "t3", "codenomad", "paseo")) {
     if ($dockerfile -notmatch "for command in .*${command}") {
         throw "Expected Dockerfile to install an in-container shim for $command."
     }

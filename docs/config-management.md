@@ -101,11 +101,11 @@ Codex:
 - auth target: `/state/auth/codex/auth.json`
 - session data: `/state/data/codex/`
 
-Gemini:
+Antigravity:
 
-- default config: `/state/config/gemini/settings.json`
-- auth target: `/state/auth/gemini/`
-- runtime home: `~/.gemini`
+- default config: `/state/config/antigravity/settings.json`
+- auth target: `/state/auth/antigravity/`
+- runtime home: `~/.antigravity`
 
 Copilot:
 

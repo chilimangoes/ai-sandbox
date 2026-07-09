@@ -17,7 +17,7 @@ $DefaultAppContainerPort = 3000
 
 function Write-Usage {
     @"
-Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|gemini|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]
+Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|agy|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]
 "@
 }
 
