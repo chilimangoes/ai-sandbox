@@ -7,6 +7,7 @@ From a workspace directory:
 - `ai-sandbox`: start or attach and open the interactive shell
 - `ai-sandbox shell`: same as the default command
 - `ai-sandbox codex`: run Codex CLI in the sandbox
+- `ai-sandbox claude`: run Claude Code CLI in the sandbox
 - `ai-sandbox agy`: run Antigravity CLI in the sandbox
 - `ai-sandbox copilot`: run Copilot CLI in the sandbox
 - `ai-sandbox opencode`: run OpenCode in the sandbox

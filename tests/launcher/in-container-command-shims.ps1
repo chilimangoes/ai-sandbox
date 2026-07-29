@@ -11,13 +11,14 @@ if ($dockerfile -notmatch 'AI_SANDBOX_REAL_BIN_DIR=/opt/ai-sandbox/bin') {
     throw "Expected Dockerfile to reserve a real-binary directory for shimmed commands."
 }
 
-foreach ($command in @("codex", "agy", "copilot", "opencode", "cursor-agent", "cursor", "t3", "codenomad", "paseo")) {
+foreach ($command in @("codex", "claude", "agy", "copilot", "opencode", "cursor-agent", "cursor", "t3", "codenomad", "paseo")) {
     if ($dockerfile -notmatch "for command in .*${command}") {
         throw "Expected Dockerfile to install an in-container shim for $command."
     }
 
     $realCommand = if ($command -eq "cursor") { "cursor-agent" } else { $command }
-    if ($entrypoint -notmatch "/opt/ai-sandbox/bin/${realCommand}") {
+    $dispatchPath = if ($command -eq "claude") { "/opt/ai-sandbox/claude-wrapper.sh" } else { "/opt/ai-sandbox/bin/${realCommand}" }
+    if ($entrypoint -notmatch [regex]::Escape($dispatchPath)) {
         throw "Expected docker/entrypoint.sh to call the real $command binary when dispatching $command."
     }
 }

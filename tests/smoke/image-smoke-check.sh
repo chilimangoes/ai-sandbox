@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-codex --version
-agy --version
-copilot --version
-opencode --version
-cursor-agent --version
-cursor --version
-codenomad --version
-paseo --version
+/opt/ai-sandbox/bin/codex --version
+/opt/ai-sandbox/bin/claude --version
+/opt/ai-sandbox/bin/agy --version
+/opt/ai-sandbox/bin/copilot --version
+/opt/ai-sandbox/bin/opencode --version
+/opt/ai-sandbox/bin/cursor-agent --version
+/opt/ai-sandbox/bin/cursor --version
+/opt/ai-sandbox/bin/codenomad --version
+/opt/ai-sandbox/bin/paseo --version
 command -v lbzip2
 command -v sudo
 sudo -n true
 node --version
 npm --version
-t3 --version >/dev/null 2>&1 || t3 --help >/dev/null
+/opt/ai-sandbox/bin/t3 --version >/dev/null 2>&1 || /opt/ai-sandbox/bin/t3 --help >/dev/null

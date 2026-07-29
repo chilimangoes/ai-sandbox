@@ -9,6 +9,13 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 - Codex auth is stored under `/state/auth/codex`.
 - T3 depends on a working Codex login because it uses `codex app-server`.
 
+## Claude Code
+
+- Authenticate by running `claude` or `ai-sandbox claude` and following the Claude Code login flow.
+- Claude's `~/.claude/` state persists under `/state/data/claude/home`.
+- Claude's top-level `~/.claude.json` state persists at `/state/data/claude/claude.json`; the launcher synchronizes it around each Claude invocation so atomic updates survive container recreation.
+- `ai-sandbox rm` preserves Claude authentication and sessions. `ai-sandbox reset-state` intentionally deletes them.
+
 ## Antigravity
 
 - Authenticate inside the sandbox by following the Antigravity CLI login flow.

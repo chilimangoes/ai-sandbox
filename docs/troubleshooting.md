@@ -38,6 +38,13 @@
 - Run `codex app-server --help` inside the sandbox to confirm the CLI supports the app-server mode.
 - Rebuild with `ai-sandbox --update` if the image was built against an older CLI release.
 
+## Claude Code is unavailable or logged out
+
+- Run `claude --version` or `ai-sandbox doctor` to verify the CLI is installed.
+- Run `ai-sandbox claude` and complete the login flow if authentication is required.
+- Rebuild with `ai-sandbox --update` to install the latest package release.
+- Claude state survives `ai-sandbox rm`, but `ai-sandbox reset-state` intentionally removes it.
+
 ## Cursor CLI is unavailable or logged out
 
 - Run `cursor --version` inside the sandbox to verify the alias and installed CLI.

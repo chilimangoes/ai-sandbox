@@ -29,7 +29,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @openai/codex @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli \
+RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli \
     && curl -fsSL https://antigravity.google/cli/install.sh | bash \
     && ln -sf /root/.local/bin/agy /usr/local/bin/agy \
     && command -v agy >/dev/null \
@@ -38,7 +38,7 @@ RUN npm install -g @openai/codex @github/copilot opencode-ai t3 @neuralnomads/co
     && ln -sf /root/.local/bin/cursor-agent /usr/local/bin/cursor \
     && command -v cursor-agent >/dev/null \
     && mkdir -p "$AI_SANDBOX_REAL_BIN_DIR" \
-    && for command in codex agy copilot opencode cursor-agent cursor t3 codenomad paseo; do \
+    && for command in codex claude agy copilot opencode cursor-agent cursor t3 codenomad paseo; do \
         shim_path="$(command -v "$command")"; \
         real_path="$(readlink -f "$shim_path")"; \
         if [ "$real_path" = "$shim_path" ]; then \
@@ -68,9 +68,10 @@ RUN mkdir -p /opt/ai-sandbox/defaults/configs /opt/ai-sandbox/bootstrap /state/c
 COPY configs/ /opt/ai-sandbox/defaults/configs/
 COPY docker/bootstrap/ /opt/ai-sandbox/bootstrap/
 COPY docker/entrypoint.sh /opt/ai-sandbox/entrypoint.sh
+COPY docker/claude-wrapper.sh /opt/ai-sandbox/claude-wrapper.sh
 COPY tests/smoke/image-smoke-check.sh /opt/ai-sandbox/image-smoke-check.sh
 
-RUN chmod +x /opt/ai-sandbox/entrypoint.sh /opt/ai-sandbox/bootstrap/*.sh /opt/ai-sandbox/image-smoke-check.sh
+RUN chmod +x /opt/ai-sandbox/entrypoint.sh /opt/ai-sandbox/claude-wrapper.sh /opt/ai-sandbox/bootstrap/*.sh /opt/ai-sandbox/image-smoke-check.sh
 
 WORKDIR /workspace
 

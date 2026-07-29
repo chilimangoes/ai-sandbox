@@ -19,6 +19,14 @@ if ($banner -notmatch 'opencode') {
     throw "Expected banner.txt to mention opencode in the available commands list."
 }
 
+if ($banner -notmatch 'claude') {
+    throw "Expected banner.txt to mention claude in the available commands list."
+}
+
+if ($entrypoint -notmatch '(?ms)claude\).*?/opt/ai-sandbox/claude-wrapper.sh') {
+    throw "Expected docker/entrypoint.sh to dispatch claude."
+}
+
 if ($banner -notmatch 'agy') {
     throw "Expected banner.txt to mention agy in the available commands list."
 }

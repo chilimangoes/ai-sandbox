@@ -101,6 +101,12 @@ Codex:
 - auth target: `/state/auth/codex/auth.json`
 - session data: `/state/data/codex/`
 
+Claude Code:
+
+- runtime home, authentication, settings, and sessions: `/state/data/claude/home`
+- top-level user state: `/state/data/claude/claude.json`
+- `~/.claude/` is linked into the runtime home; `~/.claude.json` is synchronized before and after each Claude invocation
+
 Antigravity:
 
 - default config: `/state/config/antigravity/settings.json`

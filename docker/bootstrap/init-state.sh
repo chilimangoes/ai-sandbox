@@ -19,6 +19,8 @@ mkdir -p \
   /state/auth/copilot \
   /state/auth/opencode \
   /state/data/codex \
+  /state/data/claude \
+  /state/data/claude/home \
   /state/data/antigravity/home \
   /state/data/antigravity \
   /state/data/copilot \
@@ -39,6 +41,19 @@ mkdir -p /home/sandbox/.codex /home/sandbox/.copilot /home/sandbox/.config /home
 ln -sfn /state/config/codex/config.toml /home/sandbox/.codex/config.toml
 ln -sfn /state/auth/codex/auth.json /home/sandbox/.codex/auth.json
 ln -sfn /state/data/codex/sessions /home/sandbox/.codex/sessions
+
+if [[ -d /home/sandbox/.claude && ! -L /home/sandbox/.claude ]] && [[ -z "$(find /state/data/claude/home -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+  cp -a /home/sandbox/.claude/. /state/data/claude/home/
+fi
+rm -rf /home/sandbox/.claude
+ln -sfn /state/data/claude/home /home/sandbox/.claude
+
+if [[ -f /home/sandbox/.claude.json && ! -L /home/sandbox/.claude.json ]] && [[ ! -s /state/data/claude/claude.json ]]; then
+  cp /home/sandbox/.claude.json /state/data/claude/claude.json
+fi
+touch /state/data/claude/claude.json
+rm -f /home/sandbox/.claude.json
+cp /state/data/claude/claude.json /home/sandbox/.claude.json
 
 rm -rf /home/sandbox/.antigravity
 ln -sfn /state/data/antigravity/home /home/sandbox/.antigravity

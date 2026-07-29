@@ -5,7 +5,7 @@
 ## Overview
 
 - `ai-sandbox` opens an interactive shell in `/workspace/<project-folder-slug>`
-- shell startup prints a short banner with `codex`, `agy`, `copilot`, `opencode`, `cursor` (`cursor-agent`), `t3`, `codenomad`, and `paseo`, plus the selected T3, CodeNomad, Paseo, and published web-port addresses
+- shell startup prints a short banner with `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor` (`cursor-agent`), `t3`, `codenomad`, and `paseo`, plus the selected T3, CodeNomad, Paseo, and published web-port addresses
 - `ai-sandbox t3` starts T3 for the current terminal session; ending the session stops T3
 - `ai-sandbox codenomad` starts CodeNomad server/web mode for the current terminal session; ending the session stops CodeNomad
 - `ai-sandbox paseo` starts the Paseo daemon for the current terminal session; ending the session stops Paseo; public relay connectivity is disabled by default
@@ -18,6 +18,7 @@
 ## Included tools
 
 - Codex CLI
+- Claude Code CLI
 - Antigravity CLI
 - GitHub Copilot CLI
 - OpenCode
@@ -43,7 +44,7 @@ Unsupported in v1:
 2. Add the `/bin` directory your `PATH`.
 3. Change into any workspace directory.
 4. Run `ai-sandbox`.
-5. Use `codex`, `agy` (aka Antigravity), `copilot`, `opencode`, `cursor` (or upstream `cursor-agent`), `t3`, `codenomad`, or `paseo` from inside the sandbox shell.
+5. Use `codex`, `claude`, `agy` (aka Antigravity), `copilot`, `opencode`, `cursor` (or upstream `cursor-agent`), `t3`, `codenomad`, or `paseo` from inside the sandbox shell.
 
 Further details live in:
 

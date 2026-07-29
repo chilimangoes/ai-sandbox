@@ -8,16 +8,17 @@
 ## Container basics
 
 - `ai-sandbox` opens a shell in `/workspace/<project-folder-slug>`.
-- The shell banner shows the available commands, including `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, `ai-sandbox paseo`, and the published container `8080` and `3000` mappings.
+- The shell banner shows the available commands, including `claude`, `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, `ai-sandbox paseo`, and the published container `8080` and `3000` mappings.
 - Files created in `/workspace/<project-folder-slug>` appear on the host.
 
 ## Tool versions
 
-- `ai-sandbox doctor` reports versions for `codex`, `agy`, `copilot`, `opencode`, `node`, and Docker.
+- `ai-sandbox doctor` reports versions for `codex`, `claude`, `agy`, `copilot`, `opencode`, `node`, and Docker.
 
 ## Auth
 
 - `codex` can authenticate and remain logged in across `ai-sandbox rm`.
+- `claude` can authenticate and remain logged in across `ai-sandbox rm`.
 - `agy` can authenticate and remain logged in across `ai-sandbox rm`.
 - `copilot` can authenticate and remain logged in across `ai-sandbox rm`.
 - `opencode` can authenticate and remain logged in across `ai-sandbox rm`.
@@ -54,3 +55,4 @@
 - `ai-sandbox reset-config` restores preset files without deleting credentials.
 - `ai-sandbox reset-config` restores the OpenCode preset without deleting OpenCode credentials.
 - `ai-sandbox reset-state` wipes credentials and runtime data for only the current workspace.
+- After `ai-sandbox reset-state`, Claude Code requires authentication again because its persisted state was intentionally removed.

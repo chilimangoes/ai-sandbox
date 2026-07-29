@@ -133,6 +133,7 @@ reset_config() {
 
 run_doctor() {
   echo "codex: $(codex --version 2>/dev/null || echo unavailable)"
+  echo "claude: $(claude --version 2>/dev/null || echo unavailable)"
   echo "agy: $(agy --version 2>/dev/null || echo unavailable)"
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
   echo "opencode: $(opencode --version 2>/dev/null || echo unavailable)"
@@ -341,6 +342,9 @@ dispatch() {
       ;;
     codex)
       run_argv_as_root /opt/ai-sandbox/bin/codex "$@"
+      ;;
+    claude)
+      run_argv_as_root /opt/ai-sandbox/claude-wrapper.sh "$@"
       ;;
     agy)
       run_argv_as_root /opt/ai-sandbox/bin/agy "$@"
