@@ -10,6 +10,8 @@ From a workspace directory:
 - `ai-sandbox agy`: run Antigravity CLI in the sandbox
 - `ai-sandbox copilot`: run Copilot CLI in the sandbox
 - `ai-sandbox opencode`: run OpenCode in the sandbox
+- `ai-sandbox cursor`: run Cursor CLI in the sandbox
+- `ai-sandbox cursor-agent`: run Cursor CLI using its upstream command name
 - `ai-sandbox t3`: start T3 in the sandbox for the current terminal session
 - `ai-sandbox codenomad`: start CodeNomad in the sandbox for the current terminal session
 - `ai-sandbox paseo`: start the Paseo daemon in the sandbox for the current terminal session

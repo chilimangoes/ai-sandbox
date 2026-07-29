@@ -1,4 +1,4 @@
-Available commands: codex, agy (Antigravity), copilot, opencode, t3, codenomad, paseo
+Available commands: codex, agy (Antigravity), copilot, opencode, cursor (cursor-agent), t3, codenomad, paseo
 Run ai-sandbox t3 to start T3.
 Run ai-sandbox codenomad to start CodeNomad.
 Run ai-sandbox paseo to start Paseo.

@@ -23,6 +23,14 @@ if ($banner -notmatch 'agy') {
     throw "Expected banner.txt to mention agy in the available commands list."
 }
 
+if ($banner -notmatch 'cursor') {
+    throw "Expected banner.txt to mention cursor in the available commands list."
+}
+
+if ($banner -notmatch 'cursor-agent') {
+    throw "Expected banner.txt to mention the upstream cursor-agent command name."
+}
+
 if ($entrypoint -notmatch 'opencode') {
     throw "Expected docker/entrypoint.sh to mention opencode in the shell banner or dispatch logic."
 }

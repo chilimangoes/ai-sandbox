@@ -5,6 +5,8 @@ codex --version
 agy --version
 copilot --version
 opencode --version
+cursor-agent --version
+cursor --version
 codenomad --version
 paseo --version
 command -v lbzip2

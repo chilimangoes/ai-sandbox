@@ -40,6 +40,8 @@
 - `ai-sandbox paseo` starts a daemon reachable at the printed workspace-specific `127.x.y.z:6767` address.
 - Another Paseo client can connect to the printed daemon address.
 - Paseo can orchestrate the current workspace and use the sandbox's installed coding CLIs.
+- `cursor --version` and `cursor-agent --version` report the same Cursor CLI release.
+- `ai-sandbox cursor` starts Cursor CLI, and Cursor authentication survives container recreation.
 - Default Paseo startup disables relay; setting `paseo_relay=1` in `/state/config/shared/sandbox.config` opts into relay pairing.
 
 ## Published web ports

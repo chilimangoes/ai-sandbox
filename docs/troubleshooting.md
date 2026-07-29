@@ -38,6 +38,13 @@
 - Run `codex app-server --help` inside the sandbox to confirm the CLI supports the app-server mode.
 - Rebuild with `ai-sandbox --update` if the image was built against an older CLI release.
 
+## Cursor CLI is unavailable or logged out
+
+- Run `cursor --version` inside the sandbox to verify the alias and installed CLI.
+- Run `cursor status`, then `cursor login` if authentication is required.
+- Rebuild with `ai-sandbox --update` to install the latest Cursor CLI release.
+- If state was intentionally cleared with `reset-state`, authenticate again.
+
 ## CodeNomad does not start
 
 - Verify the image has been rebuilt after adding CodeNomad support.

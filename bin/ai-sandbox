@@ -11,7 +11,7 @@ DEFAULT_ALT_HTTP_CONTAINER_PORT=8080
 DEFAULT_APP_CONTAINER_PORT=3000
 
 usage() {
-  echo "Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|agy|copilot|opencode|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
+  echo "Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|agy|copilot|opencode|cursor|cursor-agent|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
 }
 
 assert_docker() {

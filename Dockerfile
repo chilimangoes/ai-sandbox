@@ -33,8 +33,12 @@ RUN npm install -g @openai/codex @github/copilot opencode-ai t3 @neuralnomads/co
     && curl -fsSL https://antigravity.google/cli/install.sh | bash \
     && ln -sf /root/.local/bin/agy /usr/local/bin/agy \
     && command -v agy >/dev/null \
+    && curl https://cursor.com/install -fsS | bash \
+    && ln -sf /root/.local/bin/cursor-agent /usr/local/bin/cursor-agent \
+    && ln -sf /root/.local/bin/cursor-agent /usr/local/bin/cursor \
+    && command -v cursor-agent >/dev/null \
     && mkdir -p "$AI_SANDBOX_REAL_BIN_DIR" \
-    && for command in codex agy copilot opencode t3 codenomad paseo; do \
+    && for command in codex agy copilot opencode cursor-agent cursor t3 codenomad paseo; do \
         shim_path="$(command -v "$command")"; \
         real_path="$(readlink -f "$shim_path")"; \
         if [ "$real_path" = "$shim_path" ]; then \
@@ -50,7 +54,8 @@ RUN npm install -g @openai/codex @github/copilot opencode-ai t3 @neuralnomads/co
             'exec /opt/ai-sandbox/entrypoint.sh "$command" "$@"' \
             > "$shim_path"; \
         chmod +x "$shim_path"; \
-    done
+    done \
+    && ln -sfn "$AI_SANDBOX_REAL_BIN_DIR/cursor-agent" "$AI_SANDBOX_REAL_BIN_DIR/cursor"
 
 RUN useradd --create-home --shell /bin/bash sandbox \
     && printf '%s\n' 'sandbox ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/sandbox \

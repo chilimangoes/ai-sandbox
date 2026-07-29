@@ -23,6 +23,7 @@ mkdir -p \
   /state/data/antigravity \
   /state/data/copilot \
   /state/data/opencode \
+  /state/data/cursor \
   /state/data/codenomad \
   /state/data/codenomad/instances \
   /state/data/codenomad/tls \
@@ -53,6 +54,9 @@ ln -sfn /state/config/opencode /home/sandbox/.config/opencode
 ln -sfn /state/data/opencode /home/sandbox/.local/share/opencode
 ln -sfn /state/auth/opencode/auth.json /state/data/opencode/auth.json
 ln -sfn /state/cache/opencode /home/sandbox/.cache/opencode
+
+rm -rf /home/sandbox/.cursor
+ln -sfn /state/data/cursor /home/sandbox/.cursor
 
 mkdir -p /home/sandbox/.config/codenomad
 ln -sfn /state/config/codenomad/config.json /home/sandbox/.config/codenomad/config.json

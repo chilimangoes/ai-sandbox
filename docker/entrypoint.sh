@@ -136,6 +136,7 @@ run_doctor() {
   echo "agy: $(agy --version 2>/dev/null || echo unavailable)"
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
   echo "opencode: $(opencode --version 2>/dev/null || echo unavailable)"
+  echo "cursor: $(cursor --version 2>/dev/null || echo unavailable)"
   echo "codenomad: $(codenomad --version 2>/dev/null || echo unavailable)"
   echo "paseo: $(paseo --version 2>/dev/null || echo unavailable)"
   echo "node: $(node --version 2>/dev/null || echo unavailable)"
@@ -349,6 +350,12 @@ dispatch() {
       ;;
     opencode)
       run_argv_as_root /opt/ai-sandbox/bin/opencode "$@"
+      ;;
+    cursor-agent)
+      run_argv_as_root /opt/ai-sandbox/bin/cursor-agent "$@"
+      ;;
+    cursor)
+      run_argv_as_root /opt/ai-sandbox/bin/cursor-agent "$@"
       ;;
     codenomad)
       run_codenomad "$@"

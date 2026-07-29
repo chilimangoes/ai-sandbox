@@ -28,6 +28,13 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 - OpenCode auth persists at `/state/auth/opencode/auth.json`.
 - The container maps OpenCode's expected XDG paths so `~/.config/opencode/opencode.json` and `~/.local/share/opencode/auth.json` survive container recreation.
 
+## Cursor
+
+- Authenticate inside the sandbox with `cursor login` (or the upstream `cursor-agent login` command).
+- Check authentication with `cursor status`.
+- Cursor CLI state is persisted under `/state/data/cursor` and linked to `~/.cursor`, so login and sessions survive container recreation.
+- `reset-state` removes the persisted Cursor state along with the sandbox's other authentication and runtime data.
+
 ## CodeNomad
 
 - Start CodeNomad by running `ai-sandbox codenomad`.
