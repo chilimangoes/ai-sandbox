@@ -10,6 +10,7 @@ mkdir -p \
   /state/config/antigravity \
   /state/config/copilot \
   /state/config/opencode \
+  /state/config/cursor \
   /state/config/codenomad \
   /state/config/paseo \
   /state/config/t3 \
@@ -71,6 +72,10 @@ ln -sfn /state/auth/opencode/auth.json /state/data/opencode/auth.json
 ln -sfn /state/cache/opencode /home/sandbox/.cache/opencode
 
 rm -rf /home/sandbox/.cursor
+if [[ -f /state/data/cursor/cli-config.json && ! -L /state/data/cursor/cli-config.json ]]; then
+  mv /state/data/cursor/cli-config.json /state/config/cursor/cli-config.json
+fi
+ln -sfn /state/config/cursor/cli-config.json /state/data/cursor/cli-config.json
 ln -sfn /state/data/cursor /home/sandbox/.cursor
 
 mkdir -p /home/sandbox/.config/codenomad

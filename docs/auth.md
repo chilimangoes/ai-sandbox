@@ -39,7 +39,8 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 
 - Authenticate inside the sandbox with `cursor login` (or the upstream `cursor-agent login` command).
 - Check authentication with `cursor status`.
-- Cursor CLI state is persisted under `/state/data/cursor` and linked to `~/.cursor`, so login and sessions survive container recreation.
+- Cursor CLI configuration is persisted separately at `/state/config/cursor/cli-config.json`.
+- Authentication and session state are persisted under `/state/data/cursor` and linked to `~/.cursor`, so login and sessions survive container recreation.
 - `reset-state` removes the persisted Cursor state along with the sandbox's other authentication and runtime data.
 
 ## CodeNomad

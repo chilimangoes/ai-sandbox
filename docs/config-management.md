@@ -126,6 +126,14 @@ OpenCode:
 - cache target: `/state/cache/opencode/`
 - XDG paths are wired so `~/.config/opencode/` and `~/.local/share/opencode/` persist through the `/state` volumes
 
+Cursor:
+
+- default config: `/state/config/cursor/cli-config.json`
+- runtime, authentication, and session data: `/state/data/cursor/`
+- `~/.cursor/` is linked to the runtime directory, while `~/.cursor/cli-config.json` links back to the persisted config
+- the preset uses `approvalMode: unrestricted` and `autoAcceptWebSearch: true` for the sandbox's out-of-the-box YOLO behavior
+
+
 CodeNomad:
 
 - default config: `/state/config/codenomad/config.json`
