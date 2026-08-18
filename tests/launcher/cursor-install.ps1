@@ -47,14 +47,20 @@ foreach ($command in @("cursor-agent", "cursor")) {
     if ($dockerfile -notmatch "for command in .*${command}") {
         throw "Expected Dockerfile to install an in-container shim for $command."
     }
-
-    if ($entrypoint -notmatch "(?ms)${command}\).*?/opt/ai-sandbox/bin/cursor-agent") {
-        throw "Expected docker/entrypoint.sh to dispatch $command to the real cursor-agent binary."
-    }
 }
 
-if ($entrypoint -notmatch '(?ms)cursor\).*?/opt/ai-sandbox/bin/cursor-agent "\$@"') {
-    throw "Expected the cursor alias to forward all arguments to cursor-agent."
+if ($entrypoint -notmatch '(?ms)run_cursor_as_root\(\).*?AGENT_CLI_CREDENTIAL_STORE=file') {
+    throw "Expected Cursor commands to use Cursor's file credential store."
+}
+
+if ($entrypoint -notmatch '(?ms)run_cursor_as_root\(\).*?/opt/ai-sandbox/bin/cursor-agent') {
+    throw "Expected the Cursor credential wrapper to invoke the real cursor-agent binary."
+}
+
+foreach ($command in @("cursor", "cursor-agent")) {
+    if ($entrypoint -notmatch "(?ms)${command}\).*?run_cursor_as_root") {
+        throw "Expected $command to dispatch through the persistent credential wrapper."
+    }
 }
 
 if ($entrypoint -notmatch 'echo "cursor: \$\(cursor --version') {
@@ -81,14 +87,24 @@ if ($bootstrap -notmatch 'ln -sfn /state/data/cursor /home/sandbox/\.cursor') {
     throw "Expected bootstrap to link Cursor home state into the data volume."
 }
 
+if ($bootstrap -notmatch '/state/auth/cursor') {
+    throw "Expected bootstrap to create persistent Cursor authentication state."
+}
+
+if ($bootstrap -notmatch 'ln -sfn /state/auth/cursor /home/sandbox/\.config/cursor') {
+    throw "Expected bootstrap to link Cursor's file credential store into the auth volume."
+}
+
 foreach ($name in @("cursor", "cursor-agent")) {
     if ($usage -notmatch [regex]::Escape($name)) {
         throw "Expected docs/usage.md to document $name."
     }
 }
 
-if ($auth -notmatch '/state/data/cursor') {
-    throw "Expected docs/auth.md to document persisted Cursor state."
+foreach ($path in @("/state/auth/cursor", "/state/data/cursor")) {
+    if ($auth -notmatch [regex]::Escape($path)) {
+        throw "Expected docs/auth.md to document persisted Cursor state at $path."
+    }
 }
 
 foreach ($term in @("approvalMode", "autoAcceptWebSearch", "/state/config/cursor/cli-config.json", "reset-config", "reset-state")) {

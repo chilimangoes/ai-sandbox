@@ -66,6 +66,12 @@ run_argv_as_root() {
   run_as_root "exec ${quoted}"
 }
 
+run_cursor_as_root() {
+  local quoted
+  quoted="$(quote_args /opt/ai-sandbox/bin/cursor-agent "$@")"
+  run_as_root "export AGENT_CLI_CREDENTIAL_STORE=file; exec ${quoted}"
+}
+
 rewrite_t3_output() {
   while IFS= read -r line; do
     case "$line" in
@@ -356,10 +362,10 @@ dispatch() {
       run_argv_as_root /opt/ai-sandbox/bin/opencode "$@"
       ;;
     cursor-agent)
-      run_argv_as_root /opt/ai-sandbox/bin/cursor-agent "$@"
+      run_cursor_as_root "$@"
       ;;
     cursor)
-      run_argv_as_root /opt/ai-sandbox/bin/cursor-agent "$@"
+      run_cursor_as_root "$@"
       ;;
     codenomad)
       run_codenomad "$@"

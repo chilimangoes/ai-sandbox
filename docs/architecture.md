@@ -40,6 +40,7 @@ Runtime filesystem layout:
 - `/state/config`: persisted user-editable config files
 - `/state/auth`: persisted auth material
 - `/state/data`: persisted tool state and session data
+- `/state/data/agents`: persisted shared agent metadata exposed as `~/.agents`
 - `/state/cache`: persisted caches
 - `/opt/ai-sandbox/defaults/configs`: image-baked default presets copied from this repo
 

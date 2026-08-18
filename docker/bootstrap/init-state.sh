@@ -18,7 +18,9 @@ mkdir -p \
   /state/auth/codex \
   /state/auth/antigravity \
   /state/auth/copilot \
+  /state/auth/cursor \
   /state/auth/opencode \
+  /state/data/agents \
   /state/data/codex \
   /state/data/claude \
   /state/data/claude/home \
@@ -38,6 +40,12 @@ mkdir -p \
 /opt/ai-sandbox/bootstrap/sync-configs.sh
 
 mkdir -p /home/sandbox/.codex /home/sandbox/.copilot /home/sandbox/.config /home/sandbox/.cache /home/sandbox/.local/share
+
+rm -rf /home/sandbox/.config/cursor
+ln -sfn /state/auth/cursor /home/sandbox/.config/cursor
+
+rm -rf /home/sandbox/.agents
+ln -sfn /state/data/agents /home/sandbox/.agents
 
 ln -sfn /state/config/codex/config.toml /home/sandbox/.codex/config.toml
 ln -sfn /state/auth/codex/auth.json /home/sandbox/.codex/auth.json

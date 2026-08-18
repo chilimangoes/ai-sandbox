@@ -52,7 +52,8 @@
 
 ## Reset semantics
 
+- A marker written under `~/.agents` remains after `ai-sandbox --rebuild` and `ai-sandbox rm`.
 - `ai-sandbox reset-config` restores preset files without deleting credentials.
 - `ai-sandbox reset-config` restores the OpenCode preset without deleting OpenCode credentials.
-- `ai-sandbox reset-state` wipes credentials and runtime data for only the current workspace.
+- `ai-sandbox reset-state` wipes credentials and runtime data, including `~/.agents`, for only the current workspace.
 - After `ai-sandbox reset-state`, Claude Code requires authentication again because its persisted state was intentionally removed.

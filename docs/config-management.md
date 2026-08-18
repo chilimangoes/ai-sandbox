@@ -22,6 +22,7 @@ On first launch for a workspace:
 - the launcher creates the four state volumes
 - bootstrap copies missing default config files into `/state/config`
 - tool home paths are linked to those persisted locations
+- `~/.agents` is linked to `/state/data/agents`
 
 On normal later launches:
 
@@ -95,6 +96,11 @@ Changing supplemental folder config recreates the workspace container on the nex
 
 ## Tool inventory
 
+Shared agent metadata:
+
+- runtime data: `/state/data/agents/`
+- `~/.agents` is linked to the runtime directory so its contents survive container recreation
+
 Codex:
 
 - default config: `/state/config/codex/config.toml`
@@ -129,8 +135,10 @@ OpenCode:
 Cursor:
 
 - default config: `/state/config/cursor/cli-config.json`
-- runtime, authentication, and session data: `/state/data/cursor/`
+- authentication: `/state/auth/cursor/auth.json` (Cursor's file credential backend)
+- runtime and session data: `/state/data/cursor/`
 - `~/.cursor/` is linked to the runtime directory, while `~/.cursor/cli-config.json` links back to the persisted config
+- `~/.config/cursor/` is linked to the authentication directory
 - the preset uses `approvalMode: unrestricted` and `autoAcceptWebSearch: true` for the sandbox's out-of-the-box YOLO behavior
 
 
@@ -163,4 +171,5 @@ T3:
 
 - `--update` rebuilds the shared image with refreshed base and npm packages, then keeps using the current workspace container unless it needs to be recreated
 - `--rebuild` rebuilds the shared image with refreshed base and npm packages, then always removes and recreates the workspace container
-- both flows preserve all state volumes by default
+- `--update`, `--rebuild`, and `rm` preserve `/state/data/agents` in the workspace data volume
+- `reset-state` removes `/state/data/agents` along with the other persisted workspace state

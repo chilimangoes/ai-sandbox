@@ -28,6 +28,10 @@ Maintenance:
 - `ai-sandbox --update`: rebuild the shared image, then reuse the existing workspace container unless it needs to be recreated
 - `ai-sandbox --rebuild`: rebuild the shared image and always remove and recreate the workspace container
 
+## Cursor defaults
+
+Cursor starts with unrestricted approvals and automatic web-search acceptance enabled. Both `cursor` and `cursor-agent` use the same persisted file credential store, so a login survives container recreation and `ai-sandbox --rebuild`.
+
 ## Windows
 
 Requirements:
