@@ -37,6 +37,9 @@ mkdir -p \
   /state/cache/npm \
   /state/cache/opencode
 
+exec 9>/state/data/.init-state.lock
+flock 9
+
 /opt/ai-sandbox/bootstrap/sync-configs.sh
 
 mkdir -p /home/sandbox/.codex /home/sandbox/.copilot /home/sandbox/.config /home/sandbox/.cache /home/sandbox/.local/share

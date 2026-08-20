@@ -22,6 +22,7 @@ RUN apt-get update \
         ripgrep \
         sudo \
         unzip \
+        util-linux \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
