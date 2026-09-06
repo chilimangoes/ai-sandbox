@@ -149,7 +149,7 @@ The image installs:
 - `@getpaseo/cli`
 - `t3`
 
-Claude Code uses the standard command shim plus `/opt/ai-sandbox/claude-wrapper.sh`. The wrapper synchronizes `~/.claude.json` with `/state/data/claude/claude.json` around each invocation because Claude may replace that file atomically; `~/.claude/` is linked directly to `/state/data/claude/home`.
+Claude Code uses the standard command shim plus `/opt/ai-sandbox/claude-wrapper.sh`. Its editable `~/.claude/settings.json` is seeded from the repo defaults and linked to `/state/config/claude/settings.json`, while the rest of `~/.claude/` persists under `/state/data/claude/home`. The wrapper synchronizes Claude-managed `~/.claude.json` with `/state/data/claude/claude.json` around each invocation because Claude may replace that file atomically; on a fresh sandbox, that state file remains absent until Claude creates valid JSON.
 
 ## Compatibility notes
 

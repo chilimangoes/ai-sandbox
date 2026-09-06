@@ -7,8 +7,11 @@ CLAUDE_REAL_BIN="/opt/ai-sandbox/bin/claude"
 
 sync_from_state() {
   mkdir -p "$(dirname "$CLAUDE_STATE_FILE")"
-  touch "$CLAUDE_STATE_FILE"
-  cp -f "$CLAUDE_STATE_FILE" "$CLAUDE_HOME_FILE"
+  if [[ -s "$CLAUDE_STATE_FILE" ]]; then
+    cp -f "$CLAUDE_STATE_FILE" "$CLAUDE_HOME_FILE"
+  else
+    rm -f "$CLAUDE_STATE_FILE" "$CLAUDE_HOME_FILE"
+  fi
 }
 
 sync_to_state() {

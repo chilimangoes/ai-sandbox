@@ -7,6 +7,7 @@ mkdir -p \
   /state/data \
   /state/cache \
   /state/config/codex \
+  /state/config/claude \
   /state/config/antigravity \
   /state/config/copilot \
   /state/config/opencode \
@@ -60,12 +61,21 @@ fi
 rm -rf /home/sandbox/.claude
 ln -sfn /state/data/claude/home /home/sandbox/.claude
 
-if [[ -f /home/sandbox/.claude.json && ! -L /home/sandbox/.claude.json ]] && [[ ! -s /state/data/claude/claude.json ]]; then
+if [[ -f /state/data/claude/home/settings.json && ! -L /state/data/claude/home/settings.json ]]; then
+  mv /state/data/claude/home/settings.json /state/config/claude/settings.json
+fi
+ln -sfn /state/config/claude/settings.json /state/data/claude/home/settings.json
+
+if [[ -s /home/sandbox/.claude.json && ! -L /home/sandbox/.claude.json ]] && [[ ! -s /state/data/claude/claude.json ]]; then
   cp /home/sandbox/.claude.json /state/data/claude/claude.json
 fi
-touch /state/data/claude/claude.json
+if [[ -e /state/data/claude/claude.json && ! -s /state/data/claude/claude.json ]]; then
+  rm -f /state/data/claude/claude.json
+fi
 rm -f /home/sandbox/.claude.json
-cp /state/data/claude/claude.json /home/sandbox/.claude.json
+if [[ -f /state/data/claude/claude.json ]]; then
+  cp /state/data/claude/claude.json /home/sandbox/.claude.json
+fi
 
 rm -rf /home/sandbox/.antigravity
 ln -sfn /state/data/antigravity/home /home/sandbox/.antigravity

@@ -11,6 +11,17 @@ $bashLauncher = Get-Content (Join-Path $repoRoot "bin\ai-sandbox") -Raw
 $powershellLauncher = Get-Content (Join-Path $repoRoot "bin\ai-sandbox.ps1") -Raw
 $smoke = Get-Content (Join-Path $repoRoot "tests\smoke\image-smoke-check.sh") -Raw
 $banner = Get-Content (Join-Path $repoRoot "configs\shared\banner.txt") -Raw
+$claudeConfigPath = Join-Path $repoRoot "configs\claude\settings.json"
+
+if (-not (Test-Path $claudeConfigPath)) {
+    throw "Expected configs/claude/settings.json to provide valid default Claude user settings."
+}
+
+$claudeConfig = Get-Content $claudeConfigPath -Raw | ConvertFrom-Json
+
+if ($bootstrap -notmatch '/state/config/claude/settings\.json') {
+    throw "Expected bootstrap to expose Claude user settings from persisted config."
+}
 
 if ($dockerfile -notmatch '@anthropic-ai/claude-code') {
     throw "Expected Dockerfile to install the official Claude Code npm package."

@@ -109,9 +109,11 @@ Codex:
 
 Claude Code:
 
-- runtime home, authentication, settings, and sessions: `/state/data/claude/home`
+- default and user settings: `/state/config/claude/settings.json`
+- runtime home, authentication, and sessions: `/state/data/claude/home`
 - top-level user state: `/state/data/claude/claude.json`
-- `~/.claude/` is linked into the runtime home; `~/.claude.json` is synchronized before and after each Claude invocation
+- `~/.claude/` is linked into the runtime home, with `~/.claude/settings.json` linked back to persisted config
+- `~/.claude.json` is synchronized before and after each Claude invocation because it contains mutable app state rather than the normal user settings layer
 
 Antigravity:
 
