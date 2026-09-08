@@ -353,13 +353,19 @@ function Ensure-Volume {
 }
 
 function Build-Image {
-    param([switch]$Pull)
+    param([switch]$Pull, [switch]$Refresh)
     $buildArgs = @("build", "-t", $ImageTag)
     if ($Pull) {
         $buildArgs += "--pull"
     }
+    if ($Refresh) {
+        $buildArgs += "--no-cache"
+    }
     $buildArgs += $RepoRoot
     & docker @buildArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Sandbox image build failed (exit code $LASTEXITCODE). The existing container has not been replaced."
+    }
 }
 
 function Remove-ContainerIfExists {
@@ -549,7 +555,7 @@ $meta = Get-WorkspaceMeta -WorkspacePath (Get-Location).Path
 $supplementalFolders = Get-SupplementalFolderMounts -WorkspacePath $meta.Workspace
 
 if (-not (Get-ImageId -Tag $ImageTag) -or $update -or $rebuild) {
-    Build-Image -Pull
+    Build-Image -Pull -Refresh:($update -or $rebuild)
 }
 
 switch ($command) {

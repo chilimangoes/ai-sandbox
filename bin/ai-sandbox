@@ -68,7 +68,11 @@ ensure_volume() {
 }
 
 build_image() {
-  docker build --pull -t "$IMAGE_TAG" "$REPO_ROOT"
+  local build_args=(build --pull -t "$IMAGE_TAG")
+  if [[ "${UPDATE:-false}" == "true" || "${REBUILD:-false}" == "true" ]]; then
+    build_args+=(--no-cache)
+  fi
+  docker "${build_args[@]}" "$REPO_ROOT"
 }
 
 remove_container() {

@@ -1,5 +1,11 @@
 # Troubleshooting
 
+## T3 stays on an older version after rebuilding
+
+Older launchers used `docker build --pull`, which can reuse the cached npm install layer even when newer releases exist. Use the updated launcher and run `ai-sandbox --rebuild t3` from the affected workspace. Explicit updates now bypass the build cache and install `t3@latest` (stable, not nightly).
+
+To verify the installed version, run `/opt/ai-sandbox/bin/t3 --version` inside the sandbox and compare it with `npm view t3@latest version`. Releases published after the build require another explicit update. Rebuilding preserves workspace config, auth, data, and cache volumes; resetting state is unnecessary.
+
 ## Docker is not available
 
 - Verify `docker version` succeeds on the host.

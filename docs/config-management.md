@@ -171,6 +171,8 @@ T3:
 
 ## Update behavior
 
+- Explicit updates use `docker build --pull --no-cache` so cached installer layers cannot retain old tool versions. This also refreshes Node and system packages and takes longer than a cached build.
+- T3 is installed as `t3@latest`, npm's stable release channel. Bootstrap uses the image's installed binary; it does not download T3 on startup or install it in persisted state.
 - `--update` rebuilds the shared image with refreshed base and npm packages, then keeps using the current workspace container unless it needs to be recreated
 - `--rebuild` rebuilds the shared image with refreshed base and npm packages, then always removes and recreates the workspace container
 - `--update`, `--rebuild`, and `rm` preserve `/state/data/agents` in the workspace data volume

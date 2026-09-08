@@ -30,7 +30,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot opencode-ai t3 @neuralnomads/codenomad @getpaseo/cli \
+RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot opencode-ai t3@latest @neuralnomads/codenomad @getpaseo/cli \
     && curl -fsSL https://antigravity.google/cli/install.sh | bash \
     && ln -sf /root/.local/bin/agy /usr/local/bin/agy \
     && command -v agy >/dev/null \
