@@ -56,6 +56,25 @@ ensure_runtime_user
 chown -R sandbox:sandbox /state /home/sandbox
 git config --system --add safe.directory '*' 2>/dev/null || true
 
+warn_missing_git_identity() {
+  local git_user_name git_user_email
+
+  if [[ "$(git -C "$WORKSPACE_PATH" rev-parse --is-inside-work-tree 2>/dev/null)" != "true" ]]; then
+    return
+  fi
+
+  git_user_name="$(git -C "$WORKSPACE_PATH" config --get user.name 2>/dev/null || true)"
+  git_user_email="$(git -C "$WORKSPACE_PATH" config --get user.email 2>/dev/null || true)"
+
+  if [[ -n "$git_user_name" && -n "$git_user_email" ]]; then
+    return
+  fi
+
+  printf '\033[33m%s\033[0m\n' 'The current git config has no user.name and user.email values. You can run the following commands to configure them. (Ommit the --global flags if you want to store the values in the workspace folder)'
+  printf '\033[33m%s\033[0m\n' '> git config --global user.name "Your Name"'
+  printf '\033[33m%s\033[0m\n' '> git config --global user.email "your.email@example.com"'
+}
+
 quote_args() {
   printf '%q ' "$@"
 }
@@ -344,6 +363,7 @@ dispatch() {
       ;;
     shell)
       print_banner
+      warn_missing_git_identity
       run_as_root "exec bash -il"
       ;;
     codex)
