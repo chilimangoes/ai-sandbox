@@ -70,7 +70,11 @@ warn_missing_git_identity() {
     return
   fi
 
-  printf '\033[33m%s\033[0m\n' 'The current git config has no user.name and user.email values. You can run the following commands to configure them. (Ommit the --global flags if you want to store the values in the workspace folder)'
+  printf '\033[33m%s\033[0m\n' 'The current git config has no user.name and user.email values. You can run the following commands to configure these values in the workspace folder (this will apply the config at the folder level and be visible outside the sandbox):'
+  printf '\033[33m%s\033[0m\n' '> git config user.name "Your Name"'
+  printf '\033[33m%s\033[0m\n' '> git config user.email "your.email@example.com"'
+  printf ''
+  printf '\033[33m%s\033[0m\n' 'To configure them only inside this sandbox, use the following:'
   printf '\033[33m%s\033[0m\n' '> git config --global user.name "Your Name"'
   printf '\033[33m%s\033[0m\n' '> git config --global user.email "your.email@example.com"'
 }
