@@ -1,5 +1,5 @@
 model = "gpt-5.6-luna"
-service_tier = "standard"
+service_tier = "default"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 
