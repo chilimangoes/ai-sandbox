@@ -162,4 +162,4 @@ Windows-first design points:
 Linux notes:
 
 - The shell launcher follows the same naming and lifecycle rules.
-- The launcher still passes the host UID/GID for compatibility with the persisted `sandbox` home layout, but shell and tool commands run as root inside the sandbox.
+- The launcher passes the host UID/GID for the persisted `sandbox` home layout. Shell and most tool commands run as root inside the sandbox, but Claude Code drops to the mapped `sandbox` UID because Claude blocks `--dangerously-skip-permissions` as root.

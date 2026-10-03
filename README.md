@@ -31,13 +31,6 @@
 - Windows 11 with Docker Desktop and PowerShell
 - Linux with Docker Engine and a POSIX shell
 
-Unsupported in v1:
-
-- Podman
-- macOS hosts
-- host credential import
-- automatic per-launch updates
-
 ## Quickstart
 
 1. Install Docker.

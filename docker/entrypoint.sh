@@ -51,10 +51,37 @@ run_as_root() {
   exec /bin/bash -lc "export HOME=/home/sandbox; export AI_SANDBOX_T3_URL='$HOST_T3_URL'; export AI_SANDBOX_T3_PORT='$CONTAINER_T3_PORT'; export AI_SANDBOX_CODENOMAD_URL='$HOST_CODENOMAD_URL'; export AI_SANDBOX_CODENOMAD_PORT='$CONTAINER_CODENOMAD_PORT'; export AI_SANDBOX_PASEO_ADDRESS='$HOST_PASEO_ADDRESS'; export AI_SANDBOX_PASEO_PORT='$CONTAINER_PASEO_PORT'; export AI_SANDBOX_HTTP_URL='$HOST_HTTP_URL'; export AI_SANDBOX_ALT_HTTP_URL='$HOST_ALT_HTTP_URL'; export AI_SANDBOX_ALT_HTTP_PORT='$CONTAINER_ALT_HTTP_PORT'; export AI_SANDBOX_APP_URL='$HOST_APP_URL'; export AI_SANDBOX_APP_PORT='$CONTAINER_APP_PORT'; export AI_SANDBOX_WORKSPACE_PATH='$WORKSPACE_PATH'; cd '$WORKSPACE_PATH'; $command"
 }
 
-ensure_runtime_user
-/opt/ai-sandbox/bootstrap/init-state.sh
-chown -R sandbox:sandbox /state /home/sandbox
-git config --system --add safe.directory '*' 2>/dev/null || true
+run_as_sandbox() {
+  local command="$1"
+  local -a runtime_environment=(
+    "HOME=/home/sandbox"
+    "AI_SANDBOX_T3_URL=$HOST_T3_URL"
+    "AI_SANDBOX_T3_PORT=$CONTAINER_T3_PORT"
+    "AI_SANDBOX_CODENOMAD_URL=$HOST_CODENOMAD_URL"
+    "AI_SANDBOX_CODENOMAD_PORT=$CONTAINER_CODENOMAD_PORT"
+    "AI_SANDBOX_PASEO_ADDRESS=$HOST_PASEO_ADDRESS"
+    "AI_SANDBOX_PASEO_PORT=$CONTAINER_PASEO_PORT"
+    "AI_SANDBOX_HTTP_URL=$HOST_HTTP_URL"
+    "AI_SANDBOX_ALT_HTTP_URL=$HOST_ALT_HTTP_URL"
+    "AI_SANDBOX_ALT_HTTP_PORT=$CONTAINER_ALT_HTTP_PORT"
+    "AI_SANDBOX_APP_URL=$HOST_APP_URL"
+    "AI_SANDBOX_APP_PORT=$CONTAINER_APP_PORT"
+    "AI_SANDBOX_WORKSPACE_PATH=$WORKSPACE_PATH"
+  )
+
+  if [[ "$(id -u)" == "0" ]]; then
+    exec runuser -u sandbox -- env "${runtime_environment[@]}" /bin/bash -lc "cd '$WORKSPACE_PATH'; $command"
+  fi
+
+  exec env "${runtime_environment[@]}" /bin/bash -lc "cd '$WORKSPACE_PATH'; $command"
+}
+
+if [[ "$(id -u)" == "0" ]]; then
+  ensure_runtime_user
+  /opt/ai-sandbox/bootstrap/init-state.sh
+  chown -R sandbox:sandbox /state /home/sandbox
+  git config --system --add safe.directory '*' 2>/dev/null || true
+fi
 
 warn_missing_git_identity() {
   local git_user_name git_user_email
@@ -87,6 +114,12 @@ run_argv_as_root() {
   local quoted
   quoted="$(quote_args "$@")"
   run_as_root "exec ${quoted}"
+}
+
+run_argv_as_sandbox() {
+  local quoted
+  quoted="$(quote_args "$@")"
+  run_as_sandbox "exec ${quoted}"
 }
 
 run_cursor_as_root() {
@@ -374,7 +407,7 @@ dispatch() {
       run_argv_as_root /opt/ai-sandbox/bin/codex "$@"
       ;;
     claude)
-      run_argv_as_root /opt/ai-sandbox/claude-wrapper.sh "$@"
+      run_argv_as_sandbox /opt/ai-sandbox/claude-wrapper.sh "$@"
       ;;
     agy)
       run_argv_as_root /opt/ai-sandbox/bin/agy "$@"
