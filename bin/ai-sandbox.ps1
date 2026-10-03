@@ -202,6 +202,7 @@ function Start-Container {
     $dockerArgs = @(
         "run", "-d",
         "--name", $Meta.Container,
+        "--hostname", "$($Meta.Slug.Substring(0, [Math]::Min(50, $Meta.Slug.Length)).TrimEnd('-'))-$($Meta.Hash)",
         "--label", "ai-sandbox.workspace=$($Meta.Workspace)",
         "--label", "ai-sandbox.hash=$($Meta.Hash)",
         "--label", "ai-sandbox.supplemental-folders=$($SupplementalFolders.Signature)",

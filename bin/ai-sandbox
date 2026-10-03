@@ -278,6 +278,7 @@ ensure_container() {
   if ! container_exists "$CONTAINER_NAME"; then
     docker run -d \
       --name "$CONTAINER_NAME" \
+      --hostname "${WORKSPACE_SLUG:0:50}-${WORKSPACE_HASH}" \
       --label "ai-sandbox.workspace=${WORKSPACE_PATH}" \
       --label "ai-sandbox.hash=${WORKSPACE_HASH}" \
       --label "ai-sandbox.supplemental-folders=${SUPPLEMENTAL_SIGNATURE}" \
