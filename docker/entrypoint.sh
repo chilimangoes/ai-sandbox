@@ -76,11 +76,14 @@ run_as_sandbox() {
   exec env "${runtime_environment[@]}" /bin/bash -lc "cd '$WORKSPACE_PATH'; $command"
 }
 
-if [[ "$(id -u)" == "0" ]]; then
+# Child harnesses inherit completed initialization from their server or shell.
+# Reinitializing here races with live CLI state and other provider probes.
+if [[ "$(id -u)" == "0" && "${AI_SANDBOX_INITIALIZED:-}" != "1" ]]; then
   ensure_runtime_user
   /opt/ai-sandbox/bootstrap/init-state.sh
   chown -R sandbox:sandbox /state /home/sandbox
   git config --system --add safe.directory '*' 2>/dev/null || true
+  export AI_SANDBOX_INITIALIZED=1
 fi
 
 warn_missing_git_identity() {

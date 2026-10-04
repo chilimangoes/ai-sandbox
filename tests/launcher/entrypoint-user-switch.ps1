@@ -21,7 +21,7 @@ if ($entrypoint -notmatch 'export HOME=/home/sandbox') {
     throw "Expected root-dispatched commands to keep using the persisted sandbox home directory."
 }
 
-if ($entrypoint -notmatch '(?ms)if \[\[ "\$\(id -u\)" == "0" \]\]; then\s+ensure_runtime_user\s+/opt/ai-sandbox/bootstrap/init-state\.sh\s+chown -R sandbox:sandbox /state /home/sandbox') {
+if ($entrypoint -notmatch '(?ms)if \[\[ "\$\(id -u\)" == "0" && "\$\{AI_SANDBOX_INITIALIZED:-\}" != "1" \]\]; then\s+ensure_runtime_user\s+/opt/ai-sandbox/bootstrap/init-state\.sh\s+chown -R sandbox:sandbox /state /home/sandbox') {
     throw "Expected root-only container initialization before command dispatch."
 }
 

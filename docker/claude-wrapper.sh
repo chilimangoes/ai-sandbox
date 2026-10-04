@@ -34,7 +34,9 @@ trap 'forward_signal INT' INT
 trap 'forward_signal TERM' TERM
 
 set +e
-"$CLAUDE_REAL_BIN" "$@" &
+# Bash otherwise replaces stdin with /dev/null for a background command.
+# Agent SDK clients exchange stream-JSON control messages over this pipe.
+"$CLAUDE_REAL_BIN" "$@" <&0 &
 claude_pid=$!
 wait "$claude_pid"
 claude_status=$?
