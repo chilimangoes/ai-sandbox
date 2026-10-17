@@ -10,8 +10,8 @@ if ($entrypoint -notmatch 'cleanup_paseo_daemon') {
     throw "Expected docker/entrypoint.sh to define cleanup_paseo_daemon."
 }
 
-if ($entrypoint -notmatch 'paseo daemon stop --home /state/data/paseo --force') {
-    throw "Expected cleanup to force-stop the Paseo daemon."
+if ($entrypoint -notmatch '/opt/ai-sandbox/bin/paseo daemon stop --home /state/data/paseo --force') {
+    throw "Expected cleanup to force-stop the Paseo daemon through its real binary."
 }
 
 if ($entrypoint -notmatch 'rm -f /state/data/paseo/paseo\.pid') {

@@ -25,8 +25,9 @@ if ($entrypoint -notmatch '\$paseo_relay"\s*==\s*"1"') {
     throw "Expected docker/entrypoint.sh to opt into relay only when paseo_relay=1."
 }
 
-if ($entrypoint -notmatch '--no-relay') {
-    throw "Expected docker/entrypoint.sh to pass --no-relay when Paseo relay is not enabled."
+if ($entrypoint -notmatch 'get_paseo_relay_enabled' -or $entrypoint -notmatch "printf '%s' 'false'" -or
+    $entrypoint -notmatch "printf '%s' 'true'" -or $entrypoint -notmatch 'export PASEO_RELAY_ENABLED=') {
+    throw "Expected docker/entrypoint.sh to disable relay by default and use the configured relay environment override."
 }
 
 Write-Host "sandbox-config.ps1 passed"

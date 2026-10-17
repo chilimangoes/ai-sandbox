@@ -17,13 +17,61 @@ $DefaultAppContainerPort = 3000
 
 function Write-Usage {
     @"
-Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]
+Usage: ai-sandbox [--engine auto|docker|podman] [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]
 "@
 }
 
-function Assert-Docker {
-    $null = Get-Command docker -ErrorAction Stop
-    docker version | Out-Null
+function Invoke-Engine {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$EngineArgs)
+    # Windows PowerShell turns redirected native stderr into ErrorRecords.
+    # Let callers use the exit code rather than terminating on diagnostics.
+    $ErrorActionPreference = "Continue"
+    $PSNativeCommandUseErrorActionPreference = $false
+    & $script:EngineCommand @EngineArgs
+}
+
+function Invoke-EngineQuery {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$EngineArgs)
+    $ErrorActionPreference = "Continue"
+    $PSNativeCommandUseErrorActionPreference = $false
+    $output = @(Invoke-Engine @EngineArgs 2>&1)
+    $exitCode = $LASTEXITCODE
+    [pscustomobject]@{
+        Output = @($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
+        ErrorOutput = @($output | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { "$_" })
+        ExitCode = $exitCode
+    }
+}
+
+function Test-EngineHealthy {
+    param([string]$Name)
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) { return $false }
+    try {
+        $ErrorActionPreference = "Continue"
+        $PSNativeCommandUseErrorActionPreference = $false
+        & $Name version *> $null
+        return $LASTEXITCODE -eq 0
+    } catch {
+        return $false
+    }
+}
+
+function Resolve-Engine {
+    param([string]$RequestedEngine)
+    if ($RequestedEngine -cnotin @("auto", "docker", "podman")) {
+        throw "Invalid engine '$RequestedEngine'. Expected auto, docker, or podman."
+    }
+    if ($RequestedEngine -cne "auto") {
+        if (-not (Test-EngineHealthy -Name $RequestedEngine)) {
+            $guidance = if ($RequestedEngine -eq 'podman') { ' Inspect with `podman machine list` and `podman system connection list`; start the intended stopped machine with `podman machine start <name>`.' } else { '' }
+            throw "Selected engine '$RequestedEngine' is unavailable or unhealthy.$guidance"
+        }
+        return $RequestedEngine
+    }
+    foreach ($candidate in @("docker", "podman")) {
+        if (Test-EngineHealthy -Name $candidate) { return $candidate }
+    }
+    throw "No healthy container engine is available. Start Docker, or inspect Podman with ``podman machine list`` and ``podman system connection list``; start the intended stopped machine with ``podman machine start <name>``."
 }
 
 function Get-WorkspaceMeta {
@@ -193,177 +241,244 @@ function Get-SupplementalFolderMounts {
     }
 }
 
-function Start-Container {
-    param(
-        [pscustomobject]$Meta,
-        [pscustomobject]$SupplementalFolders
+function Get-ServiceDefinitions {
+    @(
+        [pscustomobject]@{ Name = 'T3'; Port = $DefaultT3ContainerPort; Url = 'URL' }
+        [pscustomobject]@{ Name = 'CODENOMAD'; Port = $DefaultCodeNomadContainerPort; Url = 'URL' }
+        [pscustomobject]@{ Name = 'PASEO'; Port = $DefaultPaseoContainerPort; Url = 'ADDRESS' }
+        [pscustomobject]@{ Name = 'ALT_HTTP'; Port = $DefaultAltHttpContainerPort; Url = 'URL' }
+        [pscustomobject]@{ Name = 'APP'; Port = $DefaultAppContainerPort; Url = 'URL' }
     )
+}
 
-    $dockerArgs = @(
-        "run", "-d",
-        "--name", $Meta.Container,
-        "--hostname", "$($Meta.Slug.Substring(0, [Math]::Min(50, $Meta.Slug.Length)).TrimEnd('-'))-$($Meta.Hash)",
-        "--label", "ai-sandbox.workspace=$($Meta.Workspace)",
-        "--label", "ai-sandbox.hash=$($Meta.Hash)",
-        "--label", "ai-sandbox.supplemental-folders=$($SupplementalFolders.Signature)",
-        "-p", "$($Meta.HostAddress):${DefaultT3ContainerPort}:${DefaultT3ContainerPort}",
-        "-p", "$($Meta.HostAddress):${DefaultCodeNomadContainerPort}:${DefaultCodeNomadContainerPort}",
-        "-p", "$($Meta.HostAddress):${DefaultPaseoContainerPort}:${DefaultPaseoContainerPort}",
-        "-p", "$($Meta.HostAddress):${DefaultAltHttpContainerPort}:${DefaultAltHttpContainerPort}",
-        "-p", "$($Meta.HostAddress):${DefaultAppContainerPort}:${DefaultAppContainerPort}",
-        "-e", "AI_SANDBOX_T3_PORT=$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_HOST_T3_PORT=$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_T3_URL=http://$($Meta.HostAddress):$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_HOST_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_URL=http://$($Meta.HostAddress):$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_PASEO_PORT=$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_HOST_PASEO_PORT=$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_PASEO_ADDRESS=$($Meta.HostAddress):$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
-        "-e", "AI_SANDBOX_HOST_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
-        "-e", "AI_SANDBOX_ALT_HTTP_URL=http://$($Meta.HostAddress):$DefaultAltHttpContainerPort",
-        "-e", "AI_SANDBOX_APP_PORT=$DefaultAppContainerPort",
-        "-e", "AI_SANDBOX_HOST_APP_PORT=$DefaultAppContainerPort",
-        "-e", "AI_SANDBOX_APP_URL=http://$($Meta.HostAddress):$DefaultAppContainerPort",
-        "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
-        "-e", "LOCAL_UID=1000",
-        "-e", "LOCAL_GID=1000",
-        "-v", "$($Meta.Workspace):$($Meta.ContainerWorkspacePath)",
-        "-v", "$($Meta.ConfigVolume):/state/config",
-        "-v", "$($Meta.AuthVolume):/state/auth",
-        "-v", "$($Meta.DataVolume):/state/data",
-        "-v", "$($Meta.CacheVolume):/state/cache"
-    )
-
-    foreach ($mount in $SupplementalFolders.Mounts) {
-        $dockerArgs += @("-v", "$($mount.HostPath):/supplemental/$($mount.Name):$($mount.Mode)")
+function Get-CandidateEndpoints {
+    param([pscustomobject]$Meta, [int]$Attempt = 0)
+    $services = @(Get-ServiceDefinitions)
+    $initial = [Convert]::ToUInt32($Meta.Hash.Substring(0, 8), 16) % 6000
+    for ($index = 0; $index -lt $services.Count; $index++) {
+        $hostPort = $services[$index].Port
+        $address = $Meta.HostAddress
+        if ($script:EngineCommand -eq 'podman') {
+            $address = '127.0.0.1'
+            $hostPort = 20000 + 5 * (($initial + $Attempt) % 6000) + $index
+        }
+        [pscustomobject]@{ ContainerPort = $services[$index].Port; HostAddress = $address; HostPort = [int]$hostPort }
     }
+}
 
-    $dockerArgs += @(
-        $ImageTag,
-        "daemon"
-    )
+function Test-PortBlockAvailable {
+    param([object[]]$Endpoints)
+    $listeners = New-Object System.Collections.Generic.List[System.Net.Sockets.TcpListener]
+    try {
+        foreach ($endpoint in $Endpoints) {
+            $listener = New-Object System.Net.Sockets.TcpListener ([Net.IPAddress]::Parse($endpoint.HostAddress)), $endpoint.HostPort
+            $listeners.Add($listener)
+            $listener.Server.ExclusiveAddressUse = $true
+            $listener.Start()
+        }
+        return $true
+    } catch [System.Net.Sockets.SocketException] {
+        return $false
+    } finally {
+        foreach ($listener in $listeners) { $listener.Stop() }
+    }
+}
 
-    $output = & docker @dockerArgs 2>&1
-    if ($LASTEXITCODE -ne 0) {
+function Get-EndpointEnvironment {
+    param([pscustomobject]$Meta, [object[]]$Endpoints)
+    foreach ($service in @(Get-ServiceDefinitions)) {
+        $endpoint = @($Endpoints | Where-Object { $_.ContainerPort -eq $service.Port })
+        if ($endpoint.Count -ne 1) { throw "Missing or ambiguous mapping for container port $($service.Port)." }
+        $address = "$($endpoint[0].HostAddress):$($endpoint[0].HostPort)"
+        $value = if ($service.Url -eq 'URL') { "http://$address" } else { $address }
+        "AI_SANDBOX_$($service.Name)_PORT=$($service.Port)"
+        "AI_SANDBOX_HOST_$($service.Name)_PORT=$($endpoint[0].HostPort)"
+        "AI_SANDBOX_$($service.Name)_$($service.Url)=$value"
+    }
+    "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)"
+}
+
+function Start-Container {
+    param([pscustomobject]$Meta, [pscustomobject]$SupplementalFolders)
+    $attemptLimit = if ($script:EngineCommand -eq 'podman') { 32 } else { 1 }
+    for ($attempt = 0; $attempt -lt $attemptLimit; $attempt++) {
+        $endpoints = @(Get-CandidateEndpoints -Meta $Meta -Attempt $attempt)
+        if ($script:EngineCommand -eq 'podman' -and -not (Test-PortBlockAvailable -Endpoints $endpoints)) { continue }
+        $engineArgs = @(
+            'run', '-d', '--name', $Meta.Container,
+            '--hostname', "$($Meta.Slug.Substring(0, [Math]::Min(50, $Meta.Slug.Length)).TrimEnd('-'))-$($Meta.Hash)",
+            '--label', "ai-sandbox.workspace=$($Meta.Workspace)",
+            '--label', "ai-sandbox.hash=$($Meta.Hash)",
+            '--label', "ai-sandbox.supplemental-folders=$($SupplementalFolders.Signature)"
+        )
+        foreach ($endpoint in $endpoints) { $engineArgs += @('-p', "$($endpoint.HostAddress):$($endpoint.HostPort):$($endpoint.ContainerPort)") }
+        foreach ($value in @(Get-EndpointEnvironment -Meta $Meta -Endpoints $endpoints)) { $engineArgs += @('-e', $value) }
+        $engineArgs += @(
+            '-e', 'LOCAL_UID=1000', '-e', 'LOCAL_GID=1000',
+            '-v', "$($Meta.Workspace):$($Meta.ContainerWorkspacePath)",
+            '-v', "$($Meta.ConfigVolume):/state/config", '-v', "$($Meta.AuthVolume):/state/auth",
+            '-v', "$($Meta.DataVolume):/state/data", '-v', "$($Meta.CacheVolume):/state/cache"
+        )
+        foreach ($mount in $SupplementalFolders.Mounts) { $engineArgs += @('-v', "$($mount.HostPath):/supplemental/$($mount.Name):$($mount.Mode)") }
+        $engineArgs += @($ImageTag, 'daemon')
+        $ErrorActionPreference = 'Continue'
+        $output = @(Invoke-Engine @engineArgs 2>&1)
+        $exitCode = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($exitCode -eq 0) { return }
         $message = ($output | ForEach-Object { "$_" }) -join [Environment]::NewLine
-        throw $message.Trim()
+        if ($script:EngineCommand -ne 'podman' -or $message -notmatch '(?i)address already in use|port is already allocated|ports are not available|bind.*in use') {
+            throw "Container creation failed (exit code $exitCode): $($message.Trim())"
+        }
+        # A failed run can leave its named container behind. Remove only that exact resource.
+        Remove-ContainerIfExists -Name $Meta.Container
+    }
+    throw 'No available Podman localhost port block after 32 attempts in 20000-49999.'
+}
+
+function Get-ContainerInspection {
+    param([string]$Name)
+    $result = Invoke-EngineQuery inspect $Name
+    if ($result.ExitCode -ne 0) {
+        if (Test-ContainerExists -Name $Name -FailOnError) { throw "Could not inspect container $Name (exit code $($result.ExitCode)): $($result.ErrorOutput -join ' ')" }
+        return $null
+    }
+    try { $items = @(($result.Output -join "`n") | ConvertFrom-Json) } catch { throw "Malformed container inspection for $Name." }
+    if ($items.Count -ne 1 -or $items[0].Name -isnot [string] -or
+        $items[0].Name.TrimStart('/') -cne $Name.TrimStart('/') -or
+        $items[0].Image -isnot [string] -or [string]::IsNullOrWhiteSpace($items[0].Image) -or
+        $items[0].State.Running -isnot [bool] -or $items[0].Config -isnot [pscustomobject]) {
+        throw "Invalid container inspection for $Name."
+    }
+    return $items[0]
+}
+
+function Get-InspectedEndpoints {
+    param([object]$Inspection)
+    foreach ($service in @(Get-ServiceDefinitions)) {
+        $key = "$($service.Port)/tcp"
+        $bindings = @($Inspection.NetworkSettings.Ports.$key | Where-Object { $null -ne $_ })
+        if ($bindings.Count -eq 0 -and -not $Inspection.State.Running) { $bindings = @($Inspection.HostConfig.PortBindings.$key | Where-Object { $null -ne $_ }) }
+        $ipv4 = @()
+        foreach ($binding in $bindings) {
+            $parsed = $null
+            $number = 0
+            if (-not [Net.IPAddress]::TryParse("$($binding.HostIp)", [ref]$parsed) -or -not [int]::TryParse("$($binding.HostPort)", [ref]$number) -or $number -lt 1 -or $number -gt 65535) { return }
+            if ($parsed.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork) { $ipv4 += [pscustomobject]@{ ContainerPort = $service.Port; HostAddress = $parsed.ToString(); HostPort = $number } }
+        }
+        if ($ipv4.Count -ne 1) { return }
+        $ipv4[0]
+    }
+}
+
+function Test-CompatibleEndpoints {
+    param([pscustomobject]$Meta, [object[]]$Endpoints)
+    $expected = @(Get-CandidateEndpoints -Meta $Meta)
+    if ($Endpoints.Count -ne 5) { return $false }
+    for ($i = 0; $i -lt 5; $i++) {
+        if ($Endpoints[$i].ContainerPort -ne $expected[$i].ContainerPort -or $Endpoints[$i].HostAddress -cne $expected[$i].HostAddress) { return $false }
+        if ($script:EngineCommand -eq 'docker' -and $Endpoints[$i].HostPort -ne $expected[$i].HostPort) { return $false }
+        if ($script:EngineCommand -eq 'podman' -and $Endpoints[$i].HostPort -ne ($Endpoints[0].HostPort + $i)) { return $false }
+    }
+    if ($script:EngineCommand -eq 'podman') {
+        $first = $Endpoints[0].HostPort
+        $initial = [Convert]::ToUInt32($Meta.Hash.Substring(0, 8), 16) % 6000
+        if ($first -lt 20000 -or $first -gt 49995 -or ($first - 20000) % 5 -ne 0) { return $false }
+        if (((($first - 20000) / 5 - $initial + 6000) % 6000) -ge 32) { return $false }
+    }
+    return $true
+}
+
+function Confirm-PublishedEndpoints {
+    param([string]$Name, [object[]]$Endpoints)
+    foreach ($endpoint in $Endpoints) {
+        $result = Invoke-EngineQuery port $Name "$($endpoint.ContainerPort)/tcp"
+        $actual = @($result.Output | ForEach-Object { "$_".Trim() })
+        if ($result.ExitCode -ne 0 -or $actual -cnotcontains "$($endpoint.HostAddress):$($endpoint.HostPort)") {
+            throw "Published endpoint disagrees with structured inspection for $Name port $($endpoint.ContainerPort): expected $($endpoint.HostAddress):$($endpoint.HostPort), exit $($result.ExitCode), output '$($actual -join ', ')', stderr '$($result.ErrorOutput -join ' ')'."
+        }
     }
 }
 
 function Test-ContainerExists {
-    param([string]$Name)
-    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
-    $PSNativeCommandUseErrorActionPreference = $false
-    try {
-        $result = docker ps -a --filter "name=^/$Name$" --format "{{.Names}}"
-    } finally {
-        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+    param([string]$Name, [switch]$FailOnError)
+    $result = Invoke-EngineQuery ps -a --format "{{.Names}}"
+    if ($FailOnError -and $result.ExitCode -ne 0) {
+        throw "Could not list containers in the selected engine (exit code $($result.ExitCode))."
     }
-    return $result -eq $Name
+    return $result.ExitCode -eq 0 -and
+        (@($result.Output | ForEach-Object { "$($_)".Trim().TrimStart('/') }) -ccontains $Name.TrimStart('/'))
 }
 
 function Test-ContainerRunning {
     param([string]$Name)
-    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
-    $PSNativeCommandUseErrorActionPreference = $false
-    try {
-        $result = docker ps --filter "name=^/$Name$" --format "{{.Names}}"
-    } finally {
-        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
-    }
-    return $result -eq $Name
+    $result = Invoke-EngineQuery ps --format "{{.Names}}"
+    return $result.ExitCode -eq 0 -and
+        (@($result.Output | ForEach-Object { "$($_)".Trim().TrimStart('/') }) -ccontains $Name.TrimStart('/'))
 }
 
 function Get-ContainerImageId {
     param([string]$Name)
-    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
-    $PSNativeCommandUseErrorActionPreference = $false
-    try {
-        $value = docker inspect --format "{{.Image}}" $Name 2>$null
-    } finally {
-        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
-    }
-    if ($LASTEXITCODE -ne 0) { return $null }
-    return $value.Trim()
+    $inspection = Get-ContainerInspection -Name $Name
+    if (-not $inspection) { return $null }
+    return ("$($inspection.Image)" -replace '^sha256:', '')
 }
 
 function Get-ContainerSupplementalFolderSignature {
     param([string]$Name)
-    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
-    $PSNativeCommandUseErrorActionPreference = $false
-    try {
-        $value = docker inspect --format '{{ json .Config.Labels }}' $Name 2>$null
-    } finally {
-        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
-    }
-    if ($LASTEXITCODE -ne 0) { return $null }
-    $json = $value.Trim()
-    if ([string]::IsNullOrWhiteSpace($json) -or $json -eq "null") { return $null }
-    $labels = $json | ConvertFrom-Json
-    $property = $labels.PSObject.Properties["ai-sandbox.supplemental-folders"]
-    if (-not $property) { return $null }
-    return "$($property.Value)"
+    $inspection = Get-ContainerInspection -Name $Name
+    if (-not $inspection) { return $null }
+    $value = $inspection.Config.Labels.'ai-sandbox.supplemental-folders'
+    if ($value -is [string]) { return $value }
+    return $null
 }
 
 function Get-ImageId {
     param([string]$Tag)
-    try {
-        $dockerCommand = Get-Command docker -ErrorAction Stop
-        $dockerPath = $dockerCommand.Source
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        if ($dockerPath -match '\.(cmd|bat)$') {
-            $psi.FileName = $env:ComSpec
-            $psi.Arguments = "/d /c """"$dockerPath"" image inspect --format ""{{.Id}}"" $Tag"""
-        } else {
-            $psi.FileName = $dockerPath
-            $psi.Arguments = "image inspect --format ""{{.Id}}"" $Tag"
+    $result = Invoke-EngineQuery image inspect $Tag
+    if ($result.ExitCode -ne 0) {
+        $listing = Invoke-EngineQuery image ls --format '{{.Repository}}:{{.Tag}}'
+        if ($listing.ExitCode -ne 0) { throw "Could not query images in the selected engine (exit code $($listing.ExitCode)): $($listing.ErrorOutput -join ' ')" }
+        $aliases = @($Tag)
+        if ($script:EngineCommand -eq 'podman' -and $Tag -notmatch '/') { $aliases += "localhost/$Tag" }
+        foreach ($alias in $aliases) {
+            if (@($listing.Output | ForEach-Object { "$_".Trim() }) -ccontains $alias) { throw "Could not inspect image $Tag (exit code $($result.ExitCode)): $($result.ErrorOutput -join ' ')" }
         }
-        $psi.UseShellExecute = $false
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.CreateNoWindow = $true
-
-        $process = [System.Diagnostics.Process]::Start($psi)
-        try {
-            $stdout = $process.StandardOutput.ReadToEnd()
-            $stderr = $process.StandardError.ReadToEnd()
-            $process.WaitForExit()
-            $exitCode = $process.ExitCode
-        } finally {
-            $process.Dispose()
-        }
-    } catch {
         return $null
     }
-
-    if ($exitCode -ne 0) { return $null }
-    return $stdout.Trim()
+    try { $items = @(($result.Output -join "`n") | ConvertFrom-Json) } catch { throw "Malformed image inspection for $Tag." }
+    if ($items.Count -ne 1 -or $items[0].Id -isnot [string] -or [string]::IsNullOrWhiteSpace($items[0].Id)) { throw "Invalid image inspection for $Tag." }
+    return ("$($items[0].Id)" -replace '^sha256:', '')
 }
 
 function Ensure-Volume {
     param([string]$Name)
 
-    # Use `docker volume ls` rather than `inspect` so a missing volume does not
+    # Use `volume ls` rather than `inspect` so a missing volume does not
     # emit an error on Windows PowerShell 5.1.
-    $existing = docker volume ls --filter "name=^${Name}$" --format "{{.Name}}"
-    if ($existing -ne $Name) {
-        docker volume create $Name | Out-Null
+    $existing = Invoke-Engine volume ls --format "{{.Name}}"
+    if ($LASTEXITCODE -ne 0) { throw "Could not list volumes in the selected engine." }
+    if (@($existing | ForEach-Object { "$($_)".Trim() }) -cnotcontains $Name) {
+        Invoke-Engine volume create $Name | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Could not create volume $Name." }
     }
+    $result = Invoke-EngineQuery volume inspect $Name
+    if ($result.ExitCode -ne 0) { throw "Could not inspect volume $Name." }
+    try { $volumes = @(($result.Output -join "`n") | ConvertFrom-Json) } catch { throw "Malformed volume inspection for $Name." }
+    if ($volumes.Count -ne 1 -or $volumes[0].Name -cne $Name) { throw "Invalid volume inspection for $Name." }
 }
 
 function Build-Image {
     param([switch]$Pull, [switch]$Refresh)
     $buildArgs = @("build", "-t", $ImageTag)
     if ($Pull) {
-        $buildArgs += "--pull"
+        $buildArgs += $(if ($script:EngineCommand -eq 'podman') { '--pull=always' } else { '--pull' })
     }
     if ($Refresh) {
         $buildArgs += "--no-cache"
     }
     $buildArgs += $RepoRoot
-    & docker @buildArgs
+    Invoke-Engine @buildArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Sandbox image build failed (exit code $LASTEXITCODE). The existing container has not been replaced."
     }
@@ -371,8 +486,19 @@ function Build-Image {
 
 function Remove-ContainerIfExists {
     param([string]$Name)
-    if (Test-ContainerExists -Name $Name) {
-        docker rm -f $Name | Out-Null
+    if (Test-ContainerExists -Name $Name -FailOnError) {
+        Invoke-Engine rm -f $Name | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Failed to remove container $Name (exit code $LASTEXITCODE)." }
+    }
+}
+
+function Remove-VolumeIfExists {
+    param([string]$Name)
+    $result = Invoke-EngineQuery volume ls --format "{{.Name}}"
+    if ($result.ExitCode -ne 0) { throw "Could not list volumes in the selected engine (exit code $($result.ExitCode))." }
+    if (@($result.Output | ForEach-Object { "$($_)".Trim() }) -ccontains $Name) {
+        Invoke-Engine volume rm $Name | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Failed to remove volume $Name (exit code $LASTEXITCODE)." }
     }
 }
 
@@ -382,34 +508,9 @@ function Get-ExistingHostPort {
         [int]$ContainerPort
     )
 
-    try {
-        $dockerCommand = Get-Command docker -ErrorAction Stop
-        $dockerPath = $dockerCommand.Source
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        if ($dockerPath -match '\.(cmd|bat)$') {
-            $psi.FileName = $env:ComSpec
-            $psi.Arguments = "/d /c """"$dockerPath"" port $Name $ContainerPort/tcp"""
-        } else {
-            $psi.FileName = $dockerPath
-            $psi.Arguments = "port $Name $ContainerPort/tcp"
-        }
-        $psi.UseShellExecute = $false
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.CreateNoWindow = $true
-
-        $process = [System.Diagnostics.Process]::Start($psi)
-        try {
-            $stdout = $process.StandardOutput.ReadToEnd()
-            $stderr = $process.StandardError.ReadToEnd()
-            $process.WaitForExit()
-            $exitCode = $process.ExitCode
-        } finally {
-            $process.Dispose()
-        }
-    } catch {
-        return $null
-    }
+    $result = Invoke-EngineQuery port $Name $ContainerPort/tcp
+    $stdout = $result.Output -join "`n"
+    $exitCode = $result.ExitCode
 
     if ($exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($stdout)) {
         return $null
@@ -425,92 +526,52 @@ function Get-ExistingHostPort {
 }
 
 function Ensure-Container {
-    param(
-        [pscustomobject]$Meta,
-        [pscustomobject]$SupplementalFolders,
-        [switch]$ForceRecreate
-    )
-
+    param([pscustomobject]$Meta, [pscustomobject]$SupplementalFolders, [switch]$ForceRecreate)
     $currentImageId = Get-ImageId -Tag $ImageTag
-    if (-not $currentImageId) {
-        throw "Image $ImageTag does not exist."
-    }
-
-    if (Test-ContainerExists -Name $Meta.Container) {
-        $containerImageId = Get-ContainerImageId -Name $Meta.Container
-        $containerSupplementalSignature = Get-ContainerSupplementalFolderSignature -Name $Meta.Container
-        $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
-        $existingCodeNomadPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultCodeNomadContainerPort
-        $existingPaseoPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultPaseoContainerPort
-        $existingAltHttpPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAltHttpContainerPort
-        $existingAppPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAppContainerPort
+    if (-not $currentImageId) { throw "Image $ImageTag does not exist." }
+    $inspection = Get-ContainerInspection -Name $Meta.Container
+    if ($inspection) {
+        $endpoints = @(Get-InspectedEndpoints -Inspection $inspection)
         if ($ForceRecreate -or
-            $containerImageId -ne $currentImageId -or
-            $containerSupplementalSignature -ne $SupplementalFolders.Signature -or
-            ($existingT3Port -and $existingT3Port -ne $DefaultT3ContainerPort) -or
-            ($existingCodeNomadPort -and $existingCodeNomadPort -ne $DefaultCodeNomadContainerPort) -or
-            ($existingPaseoPort -and $existingPaseoPort -ne $DefaultPaseoContainerPort) -or
-            ($existingAltHttpPort -and $existingAltHttpPort -ne $DefaultAltHttpContainerPort) -or
-            ($existingAppPort -and $existingAppPort -ne $DefaultAppContainerPort)) {
+            ("$($inspection.Image)" -replace '^sha256:', '') -cne $currentImageId -or
+            $inspection.Config.Labels.'ai-sandbox.supplemental-folders' -cne $SupplementalFolders.Signature -or
+            -not (Test-CompatibleEndpoints -Meta $Meta -Endpoints $endpoints)) {
             Remove-ContainerIfExists -Name $Meta.Container
+            $inspection = $null
         }
     }
-
-    Ensure-Volume -Name $Meta.ConfigVolume
-    Ensure-Volume -Name $Meta.AuthVolume
-    Ensure-Volume -Name $Meta.DataVolume
-    Ensure-Volume -Name $Meta.CacheVolume
-
-    if (-not (Test-ContainerExists -Name $Meta.Container)) {
-        Start-Container -Meta $Meta -SupplementalFolders $SupplementalFolders
-    } elseif (-not (Test-ContainerRunning -Name $Meta.Container)) {
-        docker start $Meta.Container | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to start existing container $($Meta.Container)."
-        }
+    foreach ($volume in @($Meta.ConfigVolume, $Meta.AuthVolume, $Meta.DataVolume, $Meta.CacheVolume)) { Ensure-Volume -Name $volume }
+    if (-not $inspection) { Start-Container -Meta $Meta -SupplementalFolders $SupplementalFolders }
+    elseif (-not $inspection.State.Running) {
+        Invoke-Engine start $Meta.Container | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Failed to start existing container $($Meta.Container)." }
     }
+    $inspection = Get-ContainerInspection -Name $Meta.Container
+    if (-not $inspection -or -not $inspection.State.Running) { throw "Container $($Meta.Container) is not running after startup." }
+    if (("$($inspection.Image)" -replace '^sha256:', '') -cne $currentImageId -or
+        $inspection.Config.Labels.'ai-sandbox.supplemental-folders' -cne $SupplementalFolders.Signature) {
+        throw "Container $($Meta.Container) has incompatible image or mount metadata after startup."
+    }
+    $endpoints = @(Get-InspectedEndpoints -Inspection $inspection)
+    if (-not (Test-CompatibleEndpoints -Meta $Meta -Endpoints $endpoints)) { throw "Container $($Meta.Container) has incompatible published endpoints after startup." }
+    Confirm-PublishedEndpoints -Name $Meta.Container -Endpoints $endpoints
+    $Meta | Add-Member -NotePropertyName Endpoints -NotePropertyValue $endpoints -Force
 }
 
 function Exec-InContainer {
-    param(
-        [pscustomobject]$Meta,
-        [string[]]$CommandArgs,
-        [switch]$Interactive
-    )
-
-    $dockerArgs = @(
-        if ($Interactive) {
-        @("exec", "-it")
-    } else {
-        @("exec")
-    })
-
-    $dockerArgs += @(
-        "-e", "AI_SANDBOX_T3_URL=http://$($Meta.HostAddress):$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_HOST_T3_PORT=$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_T3_PORT=$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_URL=http://$($Meta.HostAddress):$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_HOST_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_PASEO_ADDRESS=$($Meta.HostAddress):$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_HOST_PASEO_PORT=$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_PASEO_PORT=$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_ALT_HTTP_URL=http://$($Meta.HostAddress):$DefaultAltHttpContainerPort",
-        "-e", "AI_SANDBOX_HOST_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
-        "-e", "AI_SANDBOX_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
-        "-e", "AI_SANDBOX_APP_URL=http://$($Meta.HostAddress):$DefaultAppContainerPort",
-        "-e", "AI_SANDBOX_HOST_APP_PORT=$DefaultAppContainerPort",
-        "-e", "AI_SANDBOX_APP_PORT=$DefaultAppContainerPort",
-        "-e", "AI_SANDBOX_WORKSPACE_PATH=$($Meta.ContainerWorkspacePath)",
-        $Meta.Container,
-        "/opt/ai-sandbox/entrypoint.sh"
-    )
-    $dockerArgs += $CommandArgs
-    & docker @dockerArgs
+    param([pscustomobject]$Meta, [string[]]$CommandArgs, [switch]$Interactive)
+    $engineArgs = @('exec')
+    if ($Interactive) { $engineArgs += '-it' }
+    if (-not $Meta.Endpoints) { throw 'Container endpoints have not been inspected.' }
+    foreach ($value in @(Get-EndpointEnvironment -Meta $Meta -Endpoints $Meta.Endpoints)) { $engineArgs += @('-e', $value) }
+    $engineArgs += @($Meta.Container, '/opt/ai-sandbox/entrypoint.sh')
+    $engineArgs += $CommandArgs
+    Invoke-Engine @engineArgs
 }
 
 $update = $false
 $rebuild = $false
+$requestedEngine = if ([string]::IsNullOrWhiteSpace($env:AI_SANDBOX_ENGINE)) { "auto" } else { $env:AI_SANDBOX_ENGINE }
 $positionals = New-Object System.Collections.Generic.List[string]
 $addFolderArgs = $null
 
@@ -526,6 +587,10 @@ for ($i = 0; $i -lt $ArgsList.Count; $i++) {
         "--rebuild" {
             $rebuild = $true
         }
+        "--engine" {
+            if ($i + 1 -ge $ArgsList.Count) { throw "Missing engine for --engine. Expected auto, docker, or podman." }
+            $requestedEngine = $ArgsList[++$i]
+        }
         "--add-folder" {
             if ($i + 1 -ge $ArgsList.Count) {
                 throw "Missing folder path for --add-folder."
@@ -537,7 +602,11 @@ for ($i = 0; $i -lt $ArgsList.Count; $i++) {
             if ($ArgsList[$i].StartsWith("--")) {
                 throw "Unknown option: $($ArgsList[$i])"
             }
-            $positionals.Add($ArgsList[$i])
+            # After the command, every argument belongs to the in-container tool.
+            for ($argumentIndex = $i; $argumentIndex -lt $ArgsList.Count; $argumentIndex++) {
+                $positionals.Add($ArgsList[$argumentIndex])
+            }
+            $i = $ArgsList.Count
         }
     }
 }
@@ -551,7 +620,7 @@ if ($addFolderArgs) {
 $command = if ($positionals.Count -gt 0) { $positionals[0] } else { "shell" }
 $commandArgs = if ($positionals.Count -gt 1) { $positionals[1..($positionals.Count - 1)] } else { @() }
 
-Assert-Docker
+$script:EngineCommand = Resolve-Engine -RequestedEngine $requestedEngine
 $meta = Get-WorkspaceMeta -WorkspacePath (Get-Location).Path
 $supplementalFolders = Get-SupplementalFolderMounts -WorkspacePath $meta.Workspace
 
@@ -561,8 +630,9 @@ if (-not (Get-ImageId -Tag $ImageTag) -or $update -or $rebuild) {
 
 switch ($command) {
     "stop" {
-        if (Test-ContainerExists -Name $meta.Container) {
-            docker stop $meta.Container | Out-Null
+        if (Test-ContainerExists -Name $meta.Container -FailOnError) {
+            Invoke-Engine stop $meta.Container | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Failed to stop container $($meta.Container) (exit code $LASTEXITCODE)." }
         }
         exit 0
     }
@@ -573,7 +643,7 @@ switch ($command) {
     "reset-state" {
         Remove-ContainerIfExists -Name $meta.Container
         foreach ($volume in @($meta.ConfigVolume, $meta.AuthVolume, $meta.DataVolume, $meta.CacheVolume)) {
-            docker volume rm $volume | Out-Null 2>$null
+            Remove-VolumeIfExists -Name $volume
         }
         exit 0
     }
@@ -605,3 +675,5 @@ switch ($command) {
         break
     }
 }
+
+exit $LASTEXITCODE

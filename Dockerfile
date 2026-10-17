@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM docker.io/library/debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false

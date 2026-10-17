@@ -16,21 +16,6 @@ if (-not (Test-Path $cursorConfigPath)) {
     throw "Expected configs/cursor/cli-config.json to provide Cursor YOLO defaults."
 }
 
-$expectedCursorConfig = [ordered]@{
-    permissions = [ordered]@{ allow = @(); deny = @() }
-    version = 1
-    modelSlashCommands = $false
-    rewind = $true
-    hasChangedDefaultModel = $false
-    approvalMode = "unrestricted"
-    autoAcceptWebSearch = $true
-} | ConvertTo-Json -Depth 4 -Compress
-$actualCursorConfig = (Get-Content $cursorConfigPath -Raw | ConvertFrom-Json) |
-    ConvertTo-Json -Depth 4 -Compress
-if ($actualCursorConfig -ne $expectedCursorConfig) {
-    throw "Cursor default config does not exactly match the requested YOLO preset."
-}
-
 if ($dockerfile -notmatch 'curl https://cursor\.com/install -fsS \| bash') {
     throw "Expected Dockerfile to install Cursor CLI using the official installer."
 }

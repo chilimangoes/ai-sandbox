@@ -1,165 +1,88 @@
 # Architecture
 
-## High-level behavior decisions
+## Host lifecycle
 
-- `ai-sandbox` opens an interactive shell by default.
-- Shell mode prints a short banner listing `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor` (`cursor-agent`), `t3`, `codenomad`, and `paseo`, plus the selected host T3, CodeNomad, and Paseo addresses to use after their service commands start.
-- `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
-- `ai-sandbox codenomad` runs CodeNomad in the foreground for the current session. Closing the terminal stops it.
-- `ai-sandbox paseo` runs the Paseo daemon in the foreground for the current session. Closing the terminal stops the daemon.
-- Tool auth is created and stored only inside Docker volumes.
-- Image refreshes only happen when the image is missing or the user passes `--update` or `--rebuild`.
-- Docker is the only supported runtime. Podman is intentionally out of scope.
+PowerShell on Windows and Bash on Linux implement the same workspace lifecycle:
 
-## Host model
+1. Resolve the absolute workspace path and derive its slug and hash.
+2. Select one healthy engine for the invocation.
+3. Build the image if absent, or refresh it for `--update` or `--rebuild`.
+4. Create or reuse the workspace container and four named volumes.
+5. Inspect its actual host endpoints.
+6. Execute the requested shell, tool, service, or diagnostic inside the container.
 
-The host launcher is workspace-centric:
+Selection follows `--engine`, then `AI_SANDBOX_ENGINE`, then automatic detection. Automatic detection prefers healthy Docker over healthy Podman. An explicit unavailable engine fails. All subsequent operations use the selected native CLI.
 
-1. Resolve the current working directory as the sandbox workspace.
-2. Derive a stable workspace slug, short hash, and workspace-specific loopback address from the absolute path.
-3. Build or refresh the shared image when required.
-4. Start one detached workspace-scoped container.
-5. Execute either `shell`, `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor`, `cursor-agent`, `t3`, `codenomad`, or `paseo` inside that container.
+Podman builds the existing `Dockerfile`; no Docker compatibility socket is required. The historical `docker/` source directory remains shared by both engines.
 
-Each workspace gets:
+Images, containers, and named volumes belong to separate engine stores. Each workspace gets one container and four volumes for config, auth, data, and cache in each engine. Resource names can match across stores without sharing their contents. Stop, removal, and reset operations affect only the selected engine's exact workspace resources.
 
-- one container
-- one config volume
-- one auth volume
-- one data volume
-- one cache volume
+The workspace and supplemental folders are host bind mounts. Both engines can change the same writable host files. Host `.ai-sandbox` mapping files are shared and survive state resets.
 
-## Container model
+## Container and state layout
 
-The image contains all tool binaries and the repo-managed default presets. The container itself stays lightweight and detached with a long-running idle process so later invocations can use `docker exec`.
+The detached container runs an idle process. Later invocations execute commands inside it through the selected engine.
 
-Runtime filesystem layout:
+| Path | Purpose |
+|---|---|
+| `/workspace/<project-folder-slug>` | Host workspace bind mount |
+| `/supplemental/<name>` | Optional host bind mounts |
+| `/state/config` | Persisted editable configuration |
+| `/state/auth` | Persisted credentials |
+| `/state/data` | Persisted sessions and tool data |
+| `/state/data/agents` | Shared agent metadata exposed as `~/.agents` |
+| `/state/cache` | Persisted caches |
+| `/opt/ai-sandbox/defaults/configs` | Image defaults from the repository |
 
-- `/workspace`: trusted parent directory inside the container
-- `/workspace/<project-folder-slug>`: bind mount of the host workspace
-- `/state/config`: persisted user-editable config files
-- `/state/auth`: persisted auth material
-- `/state/data`: persisted tool state and session data
-- `/state/data/agents`: persisted shared agent metadata exposed as `~/.agents`
-- `/state/cache`: persisted caches
-- `/opt/ai-sandbox/defaults/configs`: image-baked default presets copied from this repo
+Bootstrap creates missing state directories, copies missing presets, and links tool home paths into persisted state. Normal startup preserves existing configuration and credentials. `reset-config` restores presets; `reset-state` deletes all four workspace volumes in the selected engine.
 
-CodeNomad runs inside the same container as `opencode`, so the browser only crosses the Docker boundary to reach the UI. All OpenCode execution, file access, and auth stay inside the sandbox.
+The image uses `docker.io/library/debian:bookworm-slim`, Node.js 22, the coding tools listed in the [overview](../README.md#included-tools), and shared entrypoint scripts. Shell command shims dispatch through `/opt/ai-sandbox/entrypoint.sh` to binaries under `/opt/ai-sandbox/bin`.
 
-Paseo also runs inside the same container, but it exposes a daemon endpoint rather than a standalone local UI. Clients connect to the daemon while all agent execution, file access, and credentials remain inside the sandbox.
+Shell and most tools run as container root with `HOME=/home/sandbox`. Claude Code runs as `sandbox` because its permission-skipping mode rejects root. Its wrapper synchronizes mutable `~/.claude.json` around each invocation so atomic replacement survives recreation.
 
-Paseo relay connectivity is disabled by default. The launcher reads `/state/config/shared/sandbox.config`; only `paseo_relay=1` opts into running the daemon without `--no-relay`.
+## Linux namespaces and mounts
 
-The entrypoint performs idempotent bootstrap on every start:
+The Bash launcher requires native Linux Podman to report rootless operation and have at least 65536 subordinate UIDs and GIDs. It uses `--userns=keep-id --user 0` to retain initialization privileges while mapping `sandbox` to the host user. Container root remains within the rootless user namespace.
 
-1. Ensure state directories exist.
-2. Initialize missing config files from image defaults.
-3. Wire the expected home-directory paths to the persisted state roots.
-4. Dispatch the requested command.
+When Podman reports SELinux enabled, workspace mounts use private `:Z` labeling. Supplemental mounts use shared `:ro,z` or `:rw,z` labeling. With SELinux disabled, the launcher adds no relabel options.
 
-## Config and auth separation
+These label arguments have automated coverage; access on an enforcing host remains unverified. Enforcing-host acceptance is required before whole-feature completion. The launcher never disables SELinux separation automatically.
 
-The repo is the source of truth for default presets, not for mutable user state.
+## Service endpoints
 
-- Presets live under `configs/` in this repo.
-- Presets are copied into the image at build time.
-- Presets are copied into `/state/config` only when files are missing, or when the user runs `reset-config`.
-- Auth is never copied from the host and is never overwritten by normal startup.
-- `reset-state` deletes all persisted volumes for the current workspace. That is the only v1 flow that wipes auth.
+The container always uses these ports, in this order:
 
-## CLI surface
+| Service | Container port |
+|---|---|
+| T3 | 3773 |
+| CodeNomad | 9899 |
+| Paseo | 6767 |
+| Alternate HTTP | 8080 |
+| Application | 3000 |
 
-Primary commands:
+Docker on Windows and Linux, and rootless Podman on native Linux, publish matching host ports on a workspace-specific `127.x.y.z` loopback address.
 
-- `ai-sandbox`
-- `ai-sandbox shell`
-- `ai-sandbox codex`
-- `ai-sandbox claude`
-- `ai-sandbox agy`
-- `ai-sandbox copilot`
-- `ai-sandbox opencode`
-- `ai-sandbox cursor`
-- `ai-sandbox cursor-agent`
-- `ai-sandbox t3`
-- `ai-sandbox codenomad`
-- `ai-sandbox paseo`
+Windows Podman uses the verified deterministic localhost strategy:
 
-Maintenance commands:
+- Address: `127.0.0.1`
+- Range: `20000-49999`, divided into 6000 disjoint blocks of five consecutive ports
+- Hash input: lowercase absolute Windows workspace path encoded as UTF-8, hashed with SHA-256
+- Initial block index: first eight hexadecimal hash digits interpreted as an unsigned integer, modulo 6000
+- Candidate `n`: block index `(initial + n) % 6000`, starting at port `20000 + 5 * index`
+- Bound: 32 candidate blocks, starting with `n=0`
 
-- `ai-sandbox doctor`
-- `ai-sandbox stop`
-- `ai-sandbox rm`
-- `ai-sandbox reset-config`
-- `ai-sandbox reset-state`
-- `ai-sandbox --update`
-- `ai-sandbox --rebuild`
+The launcher reserves all five candidate ports on Windows before native creation and retries collisions within that bound. Host ports follow the service order in the table. Exhaustion reports `No available Podman localhost port block after 32 attempts in 20000-49999.`
 
-## Service exposure model
+Host addresses and host ports are separate from container ports. The launcher inspects the actual mappings after creation and before later execution. It passes those endpoints into the container's environment, banner, and rewritten service output. Compatible containers retain inspected mappings when restarted. Recreation selects an available block again, so host ports can change.
 
-- Each workspace gets one deterministic `127.x.y.z` host loopback address derived from the workspace hash.
-- Published services use matching host and container ports on that address.
-- Existing workspace containers are recreated when their published service ports do not match the fixed-port model.
+Image changes, supplemental mount changes, and incompatible endpoint mappings trigger scoped container recreation. Volumes remain intact. Port mappings are established at creation time.
 
-## T3 exposure
+Open the exact printed URLs. Docker's distinct loopback hosts separate browser cookies across workspaces. Windows Podman's distinct ports share `127.0.0.1` and do not provide that cookie separation.
 
-- Container port: `3773`
-- Host port: `3773`
-- Host address: the workspace-specific loopback address.
-- The chosen URL is surfaced in shell startup output and when T3 launches.
-- Users should open the exact printed URL. Rewriting it to `localhost` or `127.0.0.1` defeats the browser cookie isolation used for multiple simultaneous T3 sandboxes.
-- Shell mode reserves and prints the URL, but only `ai-sandbox t3` starts the T3 server.
-- T3 is configured for Codex-backed usage in v1. Future provider support can add new preset files without changing the launcher contract.
+## Services and diagnostics
 
-## CodeNomad exposure
+T3, CodeNomad, and Paseo run in the foreground for the current terminal session. Shell mode prints reserved endpoints without starting these services. CodeNomad uses OpenCode inside the same container; Paseo orchestrates the installed provider CLIs.
 
-- Container port: `9899`
-- Host port: `9899`
-- Host address: the workspace-specific loopback address.
-- The chosen URL is surfaced in shell startup output and when CodeNomad launches.
-- Shell mode reserves and prints the URL, but only `ai-sandbox codenomad` starts the CodeNomad server.
-- The workspace container publishes service ports at creation time because Docker port mappings cannot be added later without recreating the container.
+Paseo runs with `PASEO_HOME=/state/data/paseo` and `PASEO_LISTEN=0.0.0.0:6767`. The entrypoint runs `paseo daemon run --home /state/data/paseo`. It derives `PASEO_RELAY_ENABLED` from `/state/config/shared/sandbox.config`: only `paseo_relay=1` enables relay connectivity.
 
-## Paseo exposure
-
-- Container port: `6767`
-- Host port: `6767`
-- Host address: the workspace-specific loopback address.
-- The chosen address is surfaced in shell startup output and when Paseo launches.
-- Shell mode reserves and prints the address, but only `ai-sandbox paseo` starts the Paseo daemon.
-- The workspace container publishes service ports at creation time because Docker port mappings cannot be added later without recreating the container.
-- `ai-sandbox paseo` passes `--no-relay` by default. To enable the relay, set `paseo_relay=1` in `/state/config/shared/sandbox.config` inside the container's persistent config state.
-
-## Image design
-
-- Base image: Debian Bookworm slim
-- Runtime: Node.js 22
-- Common packages: `bash`, `curl`, `git`, `jq`, `less`, `procps`, `ripgrep`, `sudo`, `unzip`, `ca-certificates`
-- Runtime user: root for shell and tool commands, with `HOME=/home/sandbox` so persisted auth/config paths remain stable
-- Command shims: the installed tool commands in the shell route back through `/opt/ai-sandbox/entrypoint.sh`, while the entrypoint calls the real binaries from `/opt/ai-sandbox/bin`
-
-The image installs:
-
-- `@openai/codex`
-- `@anthropic-ai/claude-code`
-- Antigravity CLI, installed with `curl -fsSL https://antigravity.google/cli/install.sh | bash` and exposed as `agy`
-- `@github/copilot`
-- `opencode-ai`
-- Cursor CLI, installed with `curl https://cursor.com/install -fsS | bash` and exposed as `cursor` and `cursor-agent`
-- `@neuralnomads/codenomad`
-- `@getpaseo/cli`
-- `t3`
-
-Claude Code uses the standard command shim plus `/opt/ai-sandbox/claude-wrapper.sh`. Its editable `~/.claude/settings.json` is seeded from the repo defaults and linked to `/state/config/claude/settings.json`, while the rest of `~/.claude/` persists under `/state/data/claude/home`. The wrapper synchronizes Claude-managed `~/.claude.json` with `/state/data/claude/claude.json` around each invocation because Claude may replace that file atomically; on a fresh sandbox, that state file remains absent until Claude creates valid JSON.
-
-## Compatibility notes
-
-Windows-first design points:
-
-- PowerShell is the primary Windows launcher.
-- The launcher resolves the workspace via PowerShell path APIs before handing it to Docker.
-- Spaces and OneDrive-backed paths are preserved as normal bind mounts.
-
-Linux notes:
-
-- The shell launcher follows the same naming and lifecycle rules.
-- The launcher passes the host UID/GID for the persisted `sandbox` home layout. Shell and most tool commands run as root inside the sandbox, but Claude Code drops to the mapped `sandbox` UID because Claude blocks `--dangerously-skip-permissions` as root.
+Host doctor helpers report engine readiness and client/server versions. Local Linux Podman has no separate server. The launcher command `ai-sandbox doctor` runs installed-tool diagnostics inside the workspace container instead.

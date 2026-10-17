@@ -57,16 +57,20 @@ $($functionMatch.Value)
 
     Set-Content -LiteralPath $dockerShim -Encoding ASCII -Value @'
 @echo off
-if "%1"=="port" (
-  >&2 echo no public port '3773/tcp' published for %2
-  exit /b 1
-)
+if "%1"=="port" goto missing
 echo unexpected docker invocation %*
 exit /b 99
+:missing
+>&2 echo no public port '3773/tcp' published for %2
+exit /b 1
 '@
 
     $env:Path = "$tempDir;$originalPath"
     try {
+        foreach ($function in @("Invoke-Engine", "Invoke-EngineQuery")) {
+            Invoke-Expression ([regex]::Match($scriptText, "(?ms)^function $function \{.*?^\}").Value)
+        }
+        $script:EngineCommand = "docker"
         Invoke-Expression $setup
         $missing = Get-ExistingHostPort -Name "ai-sandbox-test" -ContainerPort $DefaultT3ContainerPort
     } finally {

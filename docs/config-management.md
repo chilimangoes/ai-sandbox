@@ -1,14 +1,20 @@
-# Config Management
+# Configuration management
 
 ## Source of truth
 
 Repo-managed defaults live under `configs/` and are copied into the image at build time. They are not bind-mounted from the host.
 
-You can change the defaults by editing them here in this repo. To change the configuration for an existing sandbox, edit the desired config file in the container's `/state/config/` folder. An easy way to edit files within sandbox container volumes (or other Docker volumes for that matter) is to connect to the container using the "Container Tools" extension in VS Code.
+Edit repository presets to change image defaults. Edit files under `/state/config/` inside a sandbox to change that workspace's persisted configuration.
+
+## Persistence boundaries
+
+Docker and Podman keep separate images, containers, and four named volumes per workspace. Configuration, authentication, data, and caches stay in the selected engine. Switching engines creates separate state without migration; select the original engine to use its earlier state.
+
+The workspace, supplemental directories, and `.ai-sandbox` mapping files are host files shared between engines. Writable host changes are visible to both. Removal and state resets do not delete these host files.
 
 ## State classes
 
-Three state classes matter in v1:
+The sandbox uses these state classes:
 
 - Default presets: version-controlled files in this repo and image-baked copies under `/opt/ai-sandbox/defaults/configs`
 - Persisted config: mutable files under `/state/config`
@@ -17,7 +23,7 @@ Three state classes matter in v1:
 
 ## Initialization rules
 
-On first launch for a workspace:
+On first launch for a workspace in each engine:
 
 - the launcher creates the four state volumes
 - bootstrap copies missing default config files into `/state/config`
@@ -31,6 +37,10 @@ On normal later launches:
 - caches and data stay untouched
 
 ## Reset commands
+
+Every command in this section affects only the selected engine and current workspace. Use an explicit `--engine` when both stores contain that workspace.
+
+**Warning:** `reset-state` deletes the selected workspace's config, auth, data, and cache volumes, including credentials.
 
 `reset-config`:
 
@@ -64,7 +74,7 @@ On normal later launches:
 
 ## Supplemental folder config
 
-Supplemental folder mappings are host-side config because Docker bind mounts must be known when the container is created.
+Supplemental folder mappings are host configuration because bind mounts must be known when the container is created. Both engines read the same local and global mapping files.
 
 Local workspace config:
 
@@ -154,7 +164,7 @@ CodeNomad:
 Shared sandbox config:
 
 - default config: `/state/config/shared/sandbox.config`
-- `paseo_relay=0` is the default and makes `ai-sandbox paseo` pass `--no-relay`; set `paseo_relay=1` to opt into Paseo's public relay; any other value keeps relay disabled
+- `paseo_relay=0` is the default and sets `PASEO_RELAY_ENABLED=0`; only `paseo_relay=1` enables Paseo's public relay after restarting the daemon
 
 Paseo:
 
@@ -171,9 +181,9 @@ T3:
 
 ## Update behavior
 
-- Explicit updates use `docker build --pull --no-cache` so cached installer layers cannot retain old tool versions. This also refreshes Node and system packages and takes longer than a cached build.
+- Explicit launcher updates use the selected engine with no cache: Docker uses `--pull --no-cache`, and Podman uses `--pull=always --no-cache`. This refreshes installer layers, Node, and system packages.
 - T3 is installed as `t3@latest`, npm's stable release channel. Bootstrap uses the image's installed binary; it does not download T3 on startup or install it in persisted state.
-- `--update` rebuilds the shared image with refreshed base and npm packages, then keeps using the current workspace container unless it needs to be recreated
-- `--rebuild` rebuilds the shared image with refreshed base and npm packages, then always removes and recreates the workspace container
+- `--update` rebuilds the selected engine's shared image, then recreates the workspace container when its image or other metadata is incompatible
+- `--rebuild` rebuilds the selected engine's shared image, then always removes and recreates the workspace container
 - `--update`, `--rebuild`, and `rm` preserve `/state/data/agents` in the workspace data volume
 - `reset-state` removes `/state/data/agents` along with the other persisted workspace state

@@ -1,48 +1,57 @@
 # ai-sandbox
 
-`ai-sandbox` is a Docker-only workspace sandbox for running AI coding tools against the current project directory on Windows and Linux hosts.
+`ai-sandbox` runs AI coding tools against your project directory in a Docker or native Podman container on Windows and Linux.
 
 ## Overview
 
-- `ai-sandbox` opens an interactive shell in `/workspace/<project-folder-slug>`
-- shell startup prints a short banner with `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor` (`cursor-agent`), `t3`, `codenomad`, and `paseo`, plus the selected T3, CodeNomad, Paseo, and published web-port addresses
-- `ai-sandbox t3` starts T3 for the current terminal session; ending the session stops T3
-- `ai-sandbox codenomad` starts CodeNomad server/web mode for the current terminal session; ending the session stops CodeNomad
-- `ai-sandbox paseo` starts the Paseo daemon for the current terminal session; ending the session stops Paseo; public relay connectivity is disabled by default
-- each sandbox container publishes T3, CodeNomad, Paseo, and web app ports on one workspace-specific `127.x.y.z` host address with matching host/container ports
-- web app ports currently exposed are 8080 and 3000
-- optional supplemental host folders can be mounted read-only or read-write under `/supplemental`
-- auth persists only inside Docker volumes owned by the sandbox
-- updates happen only through explicit `--update` or `--rebuild`
+- Run `ai-sandbox` to open a shell in `/workspace/<project-folder-slug>`.
+- Run coding CLIs with configuration, authentication, data, and caches persisted in four named volumes per workspace and engine.
+- Run `ai-sandbox t3`, `ai-sandbox codenomad`, or `ai-sandbox paseo` to start a service for the current terminal session.
+- Open the exact service URLs printed by the launcher. Windows Podman uses localhost ports; Docker and native Linux use workspace-specific loopback addresses.
+- Mount optional supplemental host folders read-only or read-write under `/supplemental`.
+- Refresh installed tools explicitly with `--update` or `--rebuild`.
+
+Docker and Podman keep separate images, containers, and persisted state. Switching engines requires separate tool sign-in. Workspace files remain shared host files.
 
 ## Included tools
+
+The image includes these tools:
 
 - Codex CLI
 - Claude Code CLI
 - Antigravity CLI
 - GitHub Copilot CLI
 - OpenCode
+- Cursor CLI, exposed as `cursor` and `cursor-agent`
 - T3 Code
 - CodeNomad
-- Paseo
+- Paseo, with public relay connectivity disabled by default
 
 ## Supported environments
 
-- Windows 11 with Docker Desktop and PowerShell
-- Linux with Docker Engine and a POSIX shell
+The verified environments are:
+
+- Windows 11 with PowerShell and Docker Desktop
+- Windows 11 with PowerShell and native Podman Machine using a rootful WSL connection
+- Linux with Bash and Docker Engine
+- Linux with Bash and rootless Podman, with SELinux disabled in live validation
+
+Enforcing SELinux acceptance remains unverified and required before the Podman feature is complete. See [Linux prerequisites](docs/usage.md#linux).
 
 ## Quickstart
 
-1. Install Docker.
-2. Add the `/bin` directory your `PATH`.
-3. Change into any workspace directory.
+1. Set up an engine using the [Windows or Linux instructions](docs/usage.md#windows).
+2. Add this repository's `bin` directory to your `PATH`.
+3. Open a terminal in your workspace directory.
 4. Run `ai-sandbox`.
-5. Use `codex`, `claude`, `agy` (aka Antigravity), `copilot`, `opencode`, `cursor` (or upstream `cursor-agent`), `t3`, `codenomad`, or `paseo` from inside the sandbox shell.
 
-Further details live in:
+Automatic selection prefers healthy Docker, then healthy Podman. Use `ai-sandbox --engine podman` to select Podman explicitly.
 
-- [docs/usage.md](docs/usage.md)
-- [docs/architecture.md](docs/architecture.md)
-- [docs/auth.md](docs/auth.md)
-- [docs/config-management.md](docs/config-management.md)
-- [docs/troubleshooting.md](docs/troubleshooting.md)
+For more information, see these guides:
+
+- [Usage and operational commands](docs/usage.md)
+- [Architecture](docs/architecture.md)
+- [Authentication](docs/auth.md)
+- [Configuration management](docs/config-management.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Manual verification checklist](docs/manual-verification-checklist.md)

@@ -7,6 +7,8 @@ $source = Get-Content (Join-Path $repoRoot "bin/ai-sandbox.ps1") -Raw
 $match = [regex]::Match($source, '(?ms)^function Build-Image \{.*?^\}')
 if (-not $match.Success) { throw "Build-Image function missing" }
 Invoke-Expression $match.Value
+Invoke-Expression ([regex]::Match($source, '(?ms)^function Invoke-Engine \{.*?^\}').Value)
+$script:EngineCommand = "docker"
 
 $ImageTag = "test:latest"
 $RepoRoot = "C:\workspace with spaces"

@@ -24,12 +24,13 @@ try {
     $dockerShim = Join-Path $tempDir "docker.cmd"
     Set-Content -LiteralPath $dockerShim -Encoding ASCII -Value @'
 @echo off
-if "%1"=="image" if "%2"=="inspect" (
-  >&2 echo Error response from daemon: No such image: %4
-  exit /b 1
-)
+if "%1"=="image" if "%2"=="inspect" goto missing
+if "%1"=="image" if "%2"=="ls" exit /b 0
 echo unexpected docker invocation %*
 exit /b 99
+:missing
+>&2 echo Error response from daemon: No such image: %4
+exit /b 1
 '@
 
     $originalPath = $env:Path
@@ -37,6 +38,10 @@ exit /b 99
     $env:Path = "$tempDir;$originalPath"
 
     try {
+        foreach ($function in @("Invoke-Engine", "Invoke-EngineQuery")) {
+            Invoke-Expression ([regex]::Match($scriptText, "(?ms)^function $function \{.*?^\}").Value)
+        }
+        $script:EngineCommand = "docker"
         Invoke-Expression $match.Value
         $result = Get-ImageId -Tag "ai-sandbox:latest"
     } finally {
@@ -51,7 +56,7 @@ exit /b 99
     Set-Content -LiteralPath $dockerShim -Encoding ASCII -Value @'
 @echo off
 if "%1"=="image" if "%2"=="inspect" (
-  echo sha256:test-image-id
+  echo [{"Id":"sha256:test-image-id"}]
   exit /b 0
 )
 echo unexpected docker invocation %*
@@ -65,7 +70,7 @@ exit /b 99
         $env:Path = $originalPath
     }
 
-    if ($resolved -ne "sha256:test-image-id") {
+    if ($resolved -ne "test-image-id") {
         throw "Expected Get-ImageId to return the image id, got: $resolved"
     }
 

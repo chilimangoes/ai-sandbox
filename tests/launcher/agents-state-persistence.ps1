@@ -1,9 +1,10 @@
 [CmdletBinding()]
-param()
+param([string]$Engine = $(if ($env:AI_SANDBOX_ENGINE) { $env:AI_SANDBOX_ENGINE } else { 'auto' }))
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "../lib/runtime-engine.ps1")
 
-$suffix = [guid]::NewGuid().ToString("N")
+$suffix = "$script:EngineCommand-$([guid]::NewGuid().ToString('N'))"
 $containerName = "ai-sandbox-agents-state-$suffix"
 $volumes = @(
     "ai-sandbox-agents-config-$suffix",
@@ -16,18 +17,18 @@ $containerCreated = $false
 $originalError = $null
 $cleanupErrors = New-Object System.Collections.Generic.List[string]
 
-function Invoke-Docker {
-    param([string[]]$DockerArgs)
-    $output = & docker @DockerArgs 2>&1
+function Invoke-TestCommand {
+    param([string[]]$EngineArgs)
+    $output = Invoke-TestEngine @EngineArgs 2>&1
     if ($LASTEXITCODE -ne 0) {
         $details = ($output | ForEach-Object { "$_" }) -join [Environment]::NewLine
-        throw "docker $($DockerArgs -join ' ') exited $LASTEXITCODE. $details"
+        throw "$script:EngineCommand $($EngineArgs -join ' ') exited $LASTEXITCODE. $details"
     }
     return $output
 }
 
 function Start-TestContainer {
-    Invoke-Docker @(
+    Invoke-TestCommand @(
         "run", "-d", "--name", $containerName,
         "-v", "$($volumes[0]):/state/config",
         "-v", "$($volumes[1]):/state/auth",
@@ -36,26 +37,27 @@ function Start-TestContainer {
         "ai-sandbox:latest", "daemon"
     ) | Out-Null
     $script:containerCreated = $true
+    Invoke-TestCommand @("exec", $containerName, "/opt/ai-sandbox/entrypoint.sh", "true") | Out-Null
 }
 
 try {
     foreach ($volume in $volumes) {
-        Invoke-Docker @("volume", "create", $volume) | Out-Null
+        Invoke-TestCommand @("volume", "create", $volume) | Out-Null
         $createdVolumes.Add($volume)
     }
 
     Start-TestContainer
 
-    Invoke-Docker @(
+    Invoke-TestCommand @(
         "exec", $containerName, "bash", "-lc",
         "test -L /home/sandbox/.agents && readlink /home/sandbox/.agents | grep -qx /state/data/agents && printf persistent-agents-state > /home/sandbox/.agents/persistence-marker && /opt/ai-sandbox/bootstrap/init-state.sh && grep -qx persistent-agents-state /home/sandbox/.agents/persistence-marker"
     ) | Out-Null
 
-    Invoke-Docker @("rm", "-f", $containerName) | Out-Null
+    Invoke-TestCommand @("rm", "-f", $containerName) | Out-Null
     $containerCreated = $false
     Start-TestContainer
 
-    Invoke-Docker @(
+    Invoke-TestCommand @(
         "exec", $containerName, "bash", "-lc",
         "test -L /home/sandbox/.agents && readlink /home/sandbox/.agents | grep -qx /state/data/agents && grep -qx persistent-agents-state /home/sandbox/.agents/persistence-marker && grep -qx persistent-agents-state /state/data/agents/persistence-marker"
     ) | Out-Null
@@ -66,8 +68,8 @@ try {
 } finally {
     if ($containerCreated) {
         try {
-            & docker rm -f $containerName | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "docker rm exited $LASTEXITCODE" }
+            Invoke-TestEngine rm -f $containerName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "$script:EngineCommand rm exited $LASTEXITCODE" }
         } catch {
             $cleanupErrors.Add("container $containerName`: $($_.Exception.Message)")
         }
@@ -75,8 +77,8 @@ try {
 
     foreach ($volume in $createdVolumes) {
         try {
-            & docker volume rm $volume | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "docker volume rm exited $LASTEXITCODE" }
+            Invoke-TestEngine volume rm $volume | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "$script:EngineCommand volume rm exited $LASTEXITCODE" }
         } catch {
             $cleanupErrors.Add("volume $volume`: $($_.Exception.Message)")
         }

@@ -30,8 +30,8 @@ if ($launcher -notmatch 'ai-sandbox\.supplemental-folders') {
     throw "Expected PowerShell launcher to store a supplemental folder signature label on containers."
 }
 
-if ($launcher -notmatch '\{\{ json \.Config\.Labels \}\}') {
-    throw "Expected PowerShell launcher to inspect labels as JSON instead of indexing a hyphenated label key in the Docker template."
+if ($launcher -notmatch 'Get-ContainerInspection -Name \$Name' -or $launcher -notmatch '\$inspection.Config.Labels') {
+    throw "Expected PowerShell launcher to read labels from structured container inspection."
 }
 
 if ($launcher -notmatch '/supplemental/') {
@@ -87,7 +87,7 @@ try {
     Set-Content -LiteralPath $dockerShim -Encoding ASCII -Value @'
 @echo off
 if "%1"=="inspect" (
-  echo {"ai-sandbox.supplemental-folders":"test-signature"}
+  echo [{"Name":"ai-sandbox-test","Image":"image-id","State":{"Running":true},"Config":{"Labels":{"ai-sandbox.supplemental-folders":"test-signature"}}}]
   exit /b 0
 )
 >&2 echo unexpected docker invocation %*
@@ -98,6 +98,10 @@ exit /b 99
     $originalPref = $global:PSNativeCommandUseErrorActionPreference
     $env:Path = "$tempDir;$originalPath"
     try {
+        foreach ($function in @("Invoke-Engine", "Invoke-EngineQuery", "Get-ContainerInspection")) {
+            Invoke-Expression ([regex]::Match($launcher, "(?ms)^function $function \{.*?^\}").Value)
+        }
+        $script:EngineCommand = "docker"
         Invoke-Expression $signatureFunction.Value
         $signature = Get-ContainerSupplementalFolderSignature -Name "ai-sandbox-test"
     } finally {

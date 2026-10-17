@@ -27,23 +27,13 @@ if ($psLauncher -match '--t3-port|--codenomad-port|--paseo-port') {
 }
 
 foreach ($expected in @(
-    '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultT3ContainerPort\}:\$\{DefaultT3ContainerPort\}"',
-    '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultCodeNomadContainerPort\}:\$\{DefaultCodeNomadContainerPort\}"',
-    '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultPaseoContainerPort\}:\$\{DefaultPaseoContainerPort\}"',
-    '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultAltHttpContainerPort\}:\$\{DefaultAltHttpContainerPort\}"',
-    '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultAppContainerPort\}:\$\{DefaultAppContainerPort\}"'
+    'ContainerPort = \$services\[\$index\]\.Port; HostAddress = \$address; HostPort =',
+    '\$hostPort = \$services\[\$index\]\.Port',
+    '\$address = \$Meta.HostAddress',
+    'foreach \(\$endpoint in \$endpoints\).*',
+    'Get-EndpointEnvironment -Meta \$Meta -Endpoints \$Meta.Endpoints'
 )) {
-    if ($psLauncher -notmatch $expected) {
-        throw "Expected bin/ai-sandbox.ps1 to publish each service on the workspace-specific address with matching host/container ports."
-    }
-}
-
-if ($psLauncher -notmatch 'AI_SANDBOX_T3_URL=http://\$\(\$Meta\.HostAddress\):\$DefaultT3ContainerPort') {
-    throw "Expected bin/ai-sandbox.ps1 to pass the workspace-specific T3 URL into new containers."
-}
-
-if ($psLauncher -notmatch 'AI_SANDBOX_T3_URL=http://\$\(\$Meta\.HostAddress\):\$DefaultT3ContainerPort') {
-    throw "Expected bin/ai-sandbox.ps1 to pass the workspace-specific T3 URL into docker exec."
+    if ($psLauncher -notmatch $expected) { throw "Expected Docker workspace endpoints and inspected exec endpoints: $expected" }
 }
 
 foreach ($expected in @(

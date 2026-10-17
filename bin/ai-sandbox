@@ -11,12 +11,89 @@ DEFAULT_ALT_HTTP_CONTAINER_PORT=8080
 DEFAULT_APP_CONTAINER_PORT=3000
 
 usage() {
-  echo "Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
+  echo "Usage: ai-sandbox [--engine auto|docker|podman] [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
 }
 
-assert_docker() {
-  command -v docker >/dev/null 2>&1
-  docker version >/dev/null
+engine() {
+  "$ENGINE_COMMAND" "$@"
+}
+
+normalize_container_name() {
+  printf '%s\n' "${1#/}"
+}
+
+engine_healthy() {
+  local name="$1"
+  command -v "$name" >/dev/null 2>&1 && "$name" version >/dev/null 2>&1
+}
+
+resolve_engine() {
+  local requested="$1" candidate
+  case "$requested" in
+    auto|docker|podman) ;;
+    *) echo "Invalid engine '$requested'. Expected auto, docker, or podman." >&2; return 1 ;;
+  esac
+  if [[ "$requested" != auto ]]; then
+    if ! engine_healthy "$requested"; then
+      echo "Selected engine '$requested' is unavailable or unhealthy." >&2
+      return 1
+    fi
+    printf '%s\n' "$requested"
+    return 0
+  fi
+  for candidate in docker podman; do
+    if engine_healthy "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  echo "No healthy container engine is available. Install Docker or Podman and start its service." >&2
+  return 1
+}
+
+has_subordinate_range() {
+  local path="$1" user="$2" uid="$3"
+  awk -F: -v user="$user" -v uid="$uid" '
+    ($1 == user || $1 == uid) && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ && $2 > 0 && $3 > 0 { count += $3 }
+    END { exit !(count >= 65536) }
+  ' "$path" 2>/dev/null
+}
+
+assert_rootless_podman_prerequisites() {
+  [[ "$ENGINE_COMMAND" == "podman" && "$(uname -s)" == "Linux" ]] || return 0
+
+  local rootless user uid
+  rootless="$(engine info --format '{{.Host.Security.Rootless}}' 2>/dev/null)" || {
+    echo "Could not inspect the selected Podman engine. Run 'podman info' and repair its reported error." >&2
+    return 1
+  }
+  if [[ "$rootless" != "true" ]]; then
+    echo "Podman on Linux must report rootless=true; received '$rootless'." >&2
+    echo "Run this launcher as your regular Linux user with a working rootless 'podman info'." >&2
+    return 1
+  fi
+
+  user="$(id -un)"
+  uid="$(id -u)"
+  if ! has_subordinate_range /etc/subuid "$user" "$uid"; then
+    echo "Rootless Podman requires at least 65536 subordinate UIDs for '$user' in /etc/subuid." >&2
+    echo "Ask an administrator to assign an unused range, then log out and back in." >&2
+    return 1
+  fi
+  if ! has_subordinate_range /etc/subgid "$user" "$uid"; then
+    echo "Rootless Podman requires at least 65536 subordinate GIDs for '$user' in /etc/subgid." >&2
+    echo "Ask an administrator to assign an unused range, then log out and back in." >&2
+    return 1
+  fi
+
+  PODMAN_SELINUX_ENABLED="$(engine info --format '{{.Host.Security.SELinuxEnabled}}' 2>/dev/null)" || {
+    echo "Could not detect SELinux support from the selected Podman engine." >&2
+    return 1
+  }
+  case "$PODMAN_SELINUX_ENABLED" in
+    true|false) ;;
+    *) echo "Podman returned an unknown SELinux state: $PODMAN_SELINUX_ENABLED" >&2; return 1 ;;
+  esac
 }
 
 workspace_meta() {
@@ -41,53 +118,101 @@ workspace_meta() {
 }
 
 container_exists() {
-  local name="$1"
-  [[ "$(docker ps -a --filter "name=^/${name}$" --format '{{.Names}}')" == "$name" ]]
+  local expected="$(normalize_container_name "$1")"
+  local found name
+  found="$(engine ps -a --format '{{.Names}}' 2>/dev/null)" || return 2
+  while IFS= read -r name; do
+    [[ "$(normalize_container_name "$name")" == "$expected" ]] && return 0
+  done <<<"$found"
+  return 1
 }
 
 container_running() {
-  local name="$1"
-  [[ "$(docker ps --filter "name=^/${name}$" --format '{{.Names}}')" == "$name" ]]
+  local expected="$(normalize_container_name "$1")"
+  local found name
+  found="$(engine ps --format '{{.Names}}' 2>/dev/null || true)"
+  while IFS= read -r name; do
+    [[ "$(normalize_container_name "$name")" == "$expected" ]] && return 0
+  done <<<"$found"
+  return 1
 }
 
 image_id() {
-  docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true
+  local value
+  value="$(engine image inspect --format '{{.Id}}' "$1" 2>/dev/null)" || return 0
+  printf '%s\n' "${value#sha256:}"
 }
 
 container_image_id() {
-  docker inspect --format '{{.Image}}' "$1" 2>/dev/null || true
+  local value
+  value="$(engine inspect --format '{{.Image}}' "$1" 2>/dev/null)" || return 0
+  printf '%s\n' "${value#sha256:}"
 }
 
 container_supplemental_signature() {
-  docker inspect --format '{{ index .Config.Labels "ai-sandbox.supplemental-folders" }}' "$1" 2>/dev/null || true
+  local labels
+  labels="$(engine inspect --format '{{ json .Config.Labels }}' "$1" 2>/dev/null)" || return 0
+  # The signature is generated as hexadecimal text, so JSON escaping is not needed.
+  local signature_pattern='"ai-sandbox\.supplemental-folders"[[:space:]]*:[[:space:]]*"([a-fA-F0-9]+)"'
+  if [[ "$labels" =~ ^[[:space:]]*\{.*\}[[:space:]]*$ && "$labels" =~ $signature_pattern ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  fi
+  return 0
 }
 
 ensure_volume() {
   local name="$1"
-  docker volume inspect "$name" >/dev/null 2>&1 || docker volume create "$name" >/dev/null
+  engine volume inspect "$name" >/dev/null 2>&1 || engine volume create "$name" >/dev/null
 }
 
 build_image() {
-  local build_args=(build --pull -t "$IMAGE_TAG")
+  local pull_option=--pull
+  [[ "$ENGINE_COMMAND" != podman ]] || pull_option=--pull=always
+  local build_args=(build "$pull_option" -t "$IMAGE_TAG")
   if [[ "${UPDATE:-false}" == "true" || "${REBUILD:-false}" == "true" ]]; then
     build_args+=(--no-cache)
   fi
-  docker "${build_args[@]}" "$REPO_ROOT"
+  engine "${build_args[@]}" "$REPO_ROOT"
 }
 
 remove_container() {
   local name="$1"
   if container_exists "$name"; then
-    docker rm -f "$name" >/dev/null
+    engine rm -f "$name" >/dev/null
+  else
+    local status=$?
+    [[ "$status" == 1 ]] || return "$status"
   fi
+}
+
+remove_volume() {
+  local name="$1" found existing
+  found="$(engine volume ls --format '{{.Name}}')" || return $?
+  while IFS= read -r existing; do
+    if [[ "$existing" == "$name" ]]; then
+      engine volume rm "$name" >/dev/null
+      return $?
+    fi
+  done <<<"$found"
 }
 
 existing_host_port() {
   local name="$1"
   local container_port="$2"
-  local output
-  output="$(docker port "$name" "${container_port}/tcp" 2>/dev/null || true)"
-  [[ "$output" =~ :([0-9]+)$ ]] && echo "${BASH_REMATCH[1]}"
+  local output line
+  output="$(engine port "$name" "${container_port}/tcp" 2>/dev/null)" || return 0
+  while IFS= read -r line; do
+    if [[ "$line" =~ :([0-9]+)[[:space:]]*$ ]]; then
+      printf '%s\n' "${BASH_REMATCH[1]}"
+      return 0
+    fi
+  done <<<"$output"
+  return 0
+}
+
+container_port_mappings() {
+  # HostConfig retains configured bindings when a stopped container has no live ports.
+  engine inspect --format '{{range $port, $bindings := .HostConfig.PortBindings}}{{range $bindings}}{{printf "%s %s %s\n" $port .HostIp .HostPort}}{{end}}{{end}}' "$1" 2>/dev/null
 }
 
 container_folder_name_valid() {
@@ -201,11 +326,18 @@ supplemental_mount_args() {
   done
 
   local signature_text=""
+  if [[ "$ENGINE_COMMAND" == podman ]]; then
+    signature_text="podman-rootless-keep-id-v1|selinux=${PODMAN_SELINUX_ENABLED:-false}"$'\n'
+  fi
   local sorted_names
   sorted_names="$(printf '%s\n' "${names[@]}" | sort)"
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
-    SUPPLEMENTAL_MOUNT_ARGS+=("-v" "${host_by_name[$name]}:/supplemental/${name}:${mode_by_name[$name]}")
+    local mount_options="${mode_by_name[$name]}"
+    if [[ "${PODMAN_SELINUX_ENABLED:-false}" == "true" ]]; then
+      mount_options+=",z"
+    fi
+    SUPPLEMENTAL_MOUNT_ARGS+=("-v" "${host_by_name[$name]}:/supplemental/${name}:${mount_options}")
     signature_text+="${host_by_name[$name]}|${name}|${mode_by_name[$name]}"$'\n'
   done <<<"$sorted_names"
   SUPPLEMENTAL_SIGNATURE="$(printf '%s' "$signature_text" | sha256sum | awk '{print $1}')"
@@ -234,37 +366,18 @@ ensure_container() {
     local recreate_needed="false"
     running_image_id="$(container_image_id "$CONTAINER_NAME")"
     running_supplemental_signature="$(container_supplemental_signature "$CONTAINER_NAME")"
-    local current_t3_host_port
-    current_t3_host_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
-    local current_codenomad_port
-    current_codenomad_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_CODENOMAD_CONTAINER_PORT")"
-    local current_paseo_port
-    current_paseo_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_PASEO_CONTAINER_PORT")"
-    local current_alt_http_port
-    current_alt_http_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_ALT_HTTP_CONTAINER_PORT")"
-    local current_app_port
-    current_app_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_APP_CONTAINER_PORT")"
-    if [[ "$FORCE_RECREATE" == "true" || "$running_image_id" != "$current_image_id" ]]; then
+    if [[ "$FORCE_RECREATE" == "true" || "${running_image_id#sha256:}" != "${current_image_id#sha256:}" || "$running_supplemental_signature" != "$SUPPLEMENTAL_SIGNATURE" ]]; then
       recreate_needed="true"
     fi
-    if [[ "$running_supplemental_signature" != "$SUPPLEMENTAL_SIGNATURE" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_t3_host_port" && "$current_t3_host_port" != "$DEFAULT_T3_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_codenomad_port" && "$current_codenomad_port" != "$DEFAULT_CODENOMAD_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_paseo_port" && "$current_paseo_port" != "$DEFAULT_PASEO_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_alt_http_port" && "$current_alt_http_port" != "$DEFAULT_ALT_HTTP_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_app_port" && "$current_app_port" != "$DEFAULT_APP_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
+    local container_port mapping endpoint matched
+    mapping="$(container_port_mappings "$CONTAINER_NAME" || true)"
+    for container_port in "$DEFAULT_T3_CONTAINER_PORT" "$DEFAULT_CODENOMAD_CONTAINER_PORT" "$DEFAULT_PASEO_CONTAINER_PORT" "$DEFAULT_ALT_HTTP_CONTAINER_PORT" "$DEFAULT_APP_CONTAINER_PORT"; do
+      matched=false
+      while IFS= read -r endpoint; do
+        [[ "$endpoint" != "${container_port}/tcp ${HOST_ADDRESS} ${container_port}" ]] || matched=true
+      done <<<"$mapping"
+      [[ "$matched" == true ]] || recreate_needed="true"
+    done
     if [[ "$recreate_needed" == "true" ]]; then
       remove_container "$CONTAINER_NAME"
     fi
@@ -276,7 +389,17 @@ ensure_container() {
   ensure_volume "$CACHE_VOLUME"
 
   if ! container_exists "$CONTAINER_NAME"; then
-    docker run -d \
+    local workspace_mount="${WORKSPACE_PATH}:${CONTAINER_WORKSPACE_PATH}"
+    local namespace_args=()
+    if [[ "$ENGINE_COMMAND" == podman ]]; then
+      # Keep host-owned paths writable by sandbox while root initializes users and state.
+      namespace_args=(--userns=keep-id --user 0)
+    fi
+    if [[ "${PODMAN_SELINUX_ENABLED:-false}" == "true" ]]; then
+      workspace_mount+=":Z"
+    fi
+    engine run -d \
+      "${namespace_args[@]}" \
       --name "$CONTAINER_NAME" \
       --hostname "${WORKSPACE_SLUG:0:50}-${WORKSPACE_HASH}" \
       --label "ai-sandbox.workspace=${WORKSPACE_PATH}" \
@@ -305,7 +428,7 @@ ensure_container() {
       -e "AI_SANDBOX_WORKSPACE_PATH=${CONTAINER_WORKSPACE_PATH}" \
       -e "LOCAL_UID=$(id -u)" \
       -e "LOCAL_GID=$(id -g)" \
-      -v "${WORKSPACE_PATH}:${CONTAINER_WORKSPACE_PATH}" \
+      -v "$workspace_mount" \
       -v "${CONFIG_VOLUME}:/state/config" \
       -v "${AUTH_VOLUME}:/state/auth" \
       -v "${DATA_VOLUME}:/state/data" \
@@ -314,7 +437,7 @@ ensure_container() {
       "$IMAGE_TAG" \
       daemon >/dev/null
   elif ! container_running "$CONTAINER_NAME"; then
-    docker start "$CONTAINER_NAME" >/dev/null
+    engine start "$CONTAINER_NAME" >/dev/null
   fi
 }
 
@@ -322,7 +445,7 @@ exec_in_container() {
   local interactive="$1"
   shift
   if [[ "$interactive" == "true" ]]; then
-    docker exec -it \
+    engine exec -it \
       -e "AI_SANDBOX_T3_URL=http://${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
@@ -342,7 +465,7 @@ exec_in_container() {
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
   else
-    docker exec \
+    engine exec \
       -e "AI_SANDBOX_T3_URL=http://${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
@@ -367,6 +490,8 @@ exec_in_container() {
 UPDATE="false"
 REBUILD="false"
 FORCE_RECREATE="false"
+REQUESTED_ENGINE="${AI_SANDBOX_ENGINE:-auto}"
+[[ -n "${REQUESTED_ENGINE//[[:space:]]/}" ]] || REQUESTED_ENGINE="auto"
 POSITIONALS=()
 ADD_FOLDER_ARGS=()
 
@@ -385,6 +510,12 @@ while [[ $# -gt 0 ]]; do
       FORCE_RECREATE="true"
       shift
       ;;
+    --engine)
+      shift
+      [[ $# -gt 0 ]] || { echo "Missing engine for --engine. Expected auto, docker, or podman." >&2; exit 1; }
+      REQUESTED_ENGINE="$1"
+      shift
+      ;;
     --add-folder)
       shift
       [[ $# -gt 0 ]] || { echo "Missing folder path for --add-folder." >&2; exit 1; }
@@ -396,8 +527,9 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
     *)
-      POSITIONALS+=("$1")
-      shift
+      # After the command, every argument belongs to the in-container tool.
+      POSITIONALS+=("$@")
+      break
       ;;
     esac
 done
@@ -410,7 +542,9 @@ fi
 COMMAND="${POSITIONALS[0]:-shell}"
 COMMAND_ARGS=("${POSITIONALS[@]:1}")
 
-assert_docker
+ENGINE_COMMAND="$(resolve_engine "$REQUESTED_ENGINE")"
+PODMAN_SELINUX_ENABLED="false"
+assert_rootless_podman_prerequisites
 mapfile -t META < <(workspace_meta "$PWD")
 WORKSPACE_PATH="${META[0]}"
 WORKSPACE_SLUG="${META[1]}"
@@ -431,7 +565,12 @@ fi
 
 case "$COMMAND" in
   stop)
-    container_exists "$CONTAINER_NAME" && docker stop "$CONTAINER_NAME" >/dev/null || true
+    if container_exists "$CONTAINER_NAME"; then
+      engine stop "$CONTAINER_NAME" >/dev/null
+    else
+      status=$?
+      [[ "$status" == 1 ]] || exit "$status"
+    fi
     exit 0
     ;;
   rm)
@@ -440,7 +579,9 @@ case "$COMMAND" in
     ;;
   reset-state)
     remove_container "$CONTAINER_NAME"
-    docker volume rm "$CONFIG_VOLUME" "$AUTH_VOLUME" "$DATA_VOLUME" "$CACHE_VOLUME" >/dev/null 2>&1 || true
+    for volume in "$CONFIG_VOLUME" "$AUTH_VOLUME" "$DATA_VOLUME" "$CACHE_VOLUME"; do
+      remove_volume "$volume"
+    done
     exit 0
     ;;
 esac

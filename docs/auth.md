@@ -1,6 +1,8 @@
 # Auth
 
-All auth for v1 happens inside the sandbox and persists only in Docker volumes. The launcher never imports host credentials.
+Authenticate inside the sandbox. Credentials persist in the selected engine's workspace volumes; the launcher never imports host credentials.
+
+Docker and Podman keep separate authentication, configuration, data, and cache state. Sign in separately after switching engines, or select the original engine to use its stored credentials. Container removal and rebuild preserve these volumes. Host workspace files remain shared between engines.
 
 ## Codex
 
@@ -25,13 +27,13 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 
 ## Copilot
 
-- Authenticate inside the sandbox by running `copilot` and following `/login`.
+- Authenticate inside the sandbox by running `copilot` and following its sign-in flow.
 - Copilot preset files live under `/state/config/copilot`.
-- Copilot auth and session state persist in Docker volumes for the current workspace.
+- Copilot auth and session state persist in the selected engine's volumes for the current workspace.
 
 ## OpenCode
 
-- Authenticate inside the sandbox by running `opencode` and following the OpenCode `/connect` flow.
+- Authenticate inside the sandbox by running `opencode` and following its provider connection flow.
 - OpenCode global config defaults live under `/state/config/opencode/opencode.json`.
 - OpenCode auth persists at `/state/auth/opencode/auth.json`.
 - The container maps OpenCode's expected XDG paths so `~/.config/opencode/opencode.json` and `~/.local/share/opencode/auth.json` survive container recreation.
@@ -49,7 +51,7 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 
 - Start CodeNomad by running `ai-sandbox codenomad`.
 - CodeNomad uses the sandbox's `opencode`, so OpenCode must already be installed and authenticated inside the sandbox.
-- The sandbox launcher currently starts CodeNomad with its internal auth disabled because it is exposed only on loopback by default and current CodeNomad server builds require an explicit password bootstrap otherwise.
+- The launcher starts CodeNomad with internal authentication disabled for its loopback endpoint.
 - CodeNomad config defaults live under `/state/config/codenomad/config.json`.
 - CodeNomad instance state persists under `/state/data/codenomad/instances`.
 - CodeNomad TLS material, if enabled later, persists under `/state/data/codenomad/tls`.
@@ -57,12 +59,12 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 ## Paseo
 
 - Start Paseo by running `ai-sandbox paseo`.
-- Paseo is a daemon/orchestrator, not the underlying credential source for agent providers.
+- Paseo orchestrates provider CLIs and uses their sandbox credentials.
 - Authenticate the provider CLIs that Paseo will manage inside the sandbox first, such as `codex` or `opencode`.
 - Paseo config defaults live under `/state/config/paseo/config.json`.
 - Paseo runtime state persists under `/state/data/paseo`.
 - The launcher sets `PASEO_HOME=/state/data/paseo` for the daemon.
-- The launcher disables Paseo's public relay by default with `--no-relay`; set `paseo_relay=1` in `/state/config/shared/sandbox.config` only if you explicitly want relay-backed clients.
+- The launcher disables Paseo's public relay by default through `PASEO_RELAY_ENABLED=0`. Set `paseo_relay=1` in `/state/config/shared/sandbox.config`, then restart Paseo to enable relay connectivity.
 
 ## T3
 
@@ -72,5 +74,6 @@ All auth for v1 happens inside the sandbox and persists only in Docker volumes. 
 
 ## Reset guidance
 
-- Use `ai-sandbox reset-config` to restore default presets while keeping credentials.
-- Use `ai-sandbox reset-state` only when you want to wipe all sandbox state, including credentials.
+**Warning:** `ai-sandbox reset-state` deletes all persisted state, including credentials, for the current workspace in the selected engine.
+
+Use `ai-sandbox reset-config` to restore default presets while keeping credentials. Both reset commands affect only the selected engine. Use an explicit `--engine` when maintaining workspaces in both stores.

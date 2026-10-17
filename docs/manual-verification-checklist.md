@@ -1,59 +1,58 @@
-# Manual Verification Checklist
+# Manual verification checklist
+
+Use disposable workspaces for reset checks. Repeat this checklist for each available host and engine pair. Keep enforcing SELinux acceptance pending until an enforcing host passes it.
+
+Acceptance used Docker Engine 29.1.3 and Podman 6.1.4, including the Windows Podman client/server and native Linux Podman. These are tested versions, not minimum requirements.
 
 ## Host setup
 
-- Docker is running.
-- The workspace directory is shareable with Docker.
+- Verify Windows PowerShell with Docker Desktop and native rootful Podman Machine separately.
+- Verify Linux Bash with Docker Engine and rootless Podman separately.
+- Verify the host doctor reports the selected engine, client/server versions, and readiness. Local Linux Podman has no separate server.
+- Confirm the workspace and supplemental folders are accessible to that engine.
+- With both engines healthy, confirm automatic selection prefers Docker.
+- Confirm `--engine` overrides `AI_SANDBOX_ENGINE`, and an explicit unavailable engine fails without fallback.
 
-## Container basics
+## Container and mounts
 
-- `ai-sandbox` opens a shell in `/workspace/<project-folder-slug>`.
-- The shell banner shows the available commands, including `claude`, `opencode`, `codenomad`, and `paseo`, and the addresses reserved for `ai-sandbox t3`, `ai-sandbox codenomad`, `ai-sandbox paseo`, and the published container `8080` and `3000` mappings.
-- Files created in `/workspace/<project-folder-slug>` appear on the host.
+- Confirm `ai-sandbox` opens a shell in `/workspace/<project-folder-slug>`.
+- Check the banner lists installed tools and all five reserved host endpoints.
+- Confirm workspace writes appear on the host, including a workspace path with spaces.
+- Confirm a read-only supplemental mount rejects writes and a read-write mount preserves host writes.
+- On Windows, include drive-letter and OneDrive-backed paths when available.
+- On Linux Podman, confirm rootless operation, subordinate ID ranges, and successful initialization with `--userns=keep-id --user 0`.
 
-## Tool versions
+## Tools and services
 
-- `ai-sandbox doctor` reports versions for `codex`, `claude`, `agy`, `copilot`, `opencode`, `node`, and Docker.
+- Confirm `ai-sandbox doctor` reports installed coding-tool versions inside the container.
+- Confirm tool arguments reach their intended CLI unchanged.
+- Confirm T3, CodeNomad, and Paseo start without an interactive TTY and advertise their inspected host endpoints.
+- Confirm both application ports respond when applications listen on container ports 8080 and 3000.
+- Start two workspaces concurrently and verify all ten published endpoints.
+- Compare the banner, service output, execution environment, and engine inspection for endpoint agreement.
+- On Docker and native Linux, confirm workspace-specific loopback hosts with matching ports.
+- On Windows Podman, confirm `127.0.0.1` and separate five-port blocks, bounded collision handling, restart reuse, and accurate URLs after recreation.
+- Check simultaneous T3 browser sessions; Windows Podman's different ports do not separate cookies by host. If sessions interfere, try separate browser profiles.
+- Confirm CodeNomad uses sandbox OpenCode and Paseo uses sandbox provider CLIs.
+- Confirm default Paseo relay is disabled and `paseo_relay=1` enables it after restart.
 
-## Auth
+## Persistence and destructive scope
 
-- `codex` can authenticate and remain logged in across `ai-sandbox rm`.
-- `claude` can authenticate and remain logged in across `ai-sandbox rm`.
-- `agy` can authenticate and remain logged in across `ai-sandbox rm`.
-- `copilot` can authenticate and remain logged in across `ai-sandbox rm`.
-- `opencode` can authenticate and remain logged in across `ai-sandbox rm`.
+**Warning:** `reset-state` deletes credentials and runtime state for the selected workspace and engine. Use owned disposable fixtures for this check.
 
-## T3
+- Authenticate required tools, including Claude Code, separately in each engine and confirm recreation preserves that engine's credentials.
+- Write distinct markers to config, auth, data, and cache in each engine for the same workspace.
+- Confirm `ai-sandbox stop` preserves the container and all volumes.
+- Confirm `ai-sandbox rm` preserves all four volumes, including `~/.agents` data.
+- Confirm `ai-sandbox reset-config` restores defaults and preserves credentials and most runtime data.
+- Confirm `ai-sandbox --update` and `ai-sandbox --rebuild` use the selected engine and preserve state.
+- Confirm image, mount, and incompatible endpoint changes recreate the container.
+- Run stop, removal, config reset, and state reset in each engine; confirm the other engine's resources and files remain intact.
+- Confirm `ai-sandbox reset-state` removes only the selected engine's four workspace volumes and requires fresh authentication afterward.
+- Confirm shared host workspace files and `.ai-sandbox` supplemental mappings survive reset and remain visible to both engines.
 
-- `ai-sandbox t3` starts a server reachable at the printed workspace-specific `127.x.y.z:3773` URL.
-- The host browser can reach the printed T3 URL.
-- Running two T3 sandboxes from different workspaces prints different loopback hosts; opening the exact printed URLs keeps both browser sessions connected.
-- T3 can create a Codex-backed session after Codex is authenticated.
+## Enforcing SELinux gate
 
-## CodeNomad
-
-- `ai-sandbox codenomad` starts a server reachable at the printed workspace-specific `127.x.y.z:9899` URL.
-- The host browser can reach the printed CodeNomad URL.
-- CodeNomad can open the current workspace and use the sandbox's `opencode`.
-
-## Paseo
-
-- `ai-sandbox paseo` starts a daemon reachable at the printed workspace-specific `127.x.y.z:6767` address.
-- Another Paseo client can connect to the printed daemon address.
-- Paseo can orchestrate the current workspace and use the sandbox's installed coding CLIs.
-- `cursor --version` and `cursor-agent --version` report the same Cursor CLI release.
-- `ai-sandbox cursor` starts Cursor CLI, and Cursor authentication survives container recreation.
-- Default Paseo startup disables relay; setting `paseo_relay=1` in `/state/config/shared/sandbox.config` opts into relay pairing.
-
-## Published web ports
-
-- `docker port <container-name>` shows bindings for `8080/tcp` and `3000/tcp` on matching ports at the workspace-specific host address.
-- The shell banner prints all host-visible URLs.
-
-## Reset semantics
-
-- A marker written under `~/.agents` remains after `ai-sandbox --rebuild` and `ai-sandbox rm`.
-- `ai-sandbox reset-config` restores preset files without deleting credentials.
-- `ai-sandbox reset-config` restores the OpenCode preset without deleting OpenCode credentials.
-- `ai-sandbox reset-state` wipes credentials and runtime data, including `~/.agents`, for only the current workspace.
-- After `ai-sandbox reset-state`, Claude Code requires authentication again because its persisted state was intentionally removed.
+- On an enforcing Linux host with rootless Podman, confirm private workspace `:Z` and shared supplemental `:ro,z` and `:rw,z` labels permit expected access.
+- Confirm read-only mounts reject writes and read-write mounts persist writes without disabling SELinux separation.
+- Record this gate as unverified until native enforcing-host acceptance passes. Automated argument checks and SELinux-disabled Linux runs do not satisfy it.

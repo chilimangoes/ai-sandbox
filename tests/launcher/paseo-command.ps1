@@ -13,12 +13,12 @@ if ($entrypoint -notmatch 'PASEO_HOME') {
     throw "Expected docker/entrypoint.sh to set PASEO_HOME before launching Paseo."
 }
 
-if ($entrypoint -notmatch 'paseo daemon start .*--foreground') {
+if ($entrypoint -notmatch 'paseo daemon run --home /state/data/paseo') {
     throw "Expected docker/entrypoint.sh to launch Paseo in foreground mode."
 }
 
-if ($entrypoint -notmatch 'PASEO_RELAY_FLAG') {
-    throw "Expected docker/entrypoint.sh to use a config-driven Paseo relay flag."
+if ($entrypoint -notmatch "export PASEO_RELAY_ENABLED='\`$PASEO_RELAY_ENABLED'") {
+    throw "Expected docker/entrypoint.sh to use the configured Paseo relay environment override."
 }
 
 if ($entrypoint -notmatch 'trap cleanup_paseo_daemon INT TERM EXIT') {

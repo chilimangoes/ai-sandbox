@@ -1,129 +1,157 @@
 # Usage
 
-## Command reference
+## Select an engine
 
-From a workspace directory:
+Both launchers accept `--engine auto|docker|podman`. Selection follows this precedence:
 
-- `ai-sandbox`: start or attach and open the interactive shell
-- `ai-sandbox shell`: same as the default command
-- `ai-sandbox codex`: run Codex CLI in the sandbox
-- `ai-sandbox claude`: run Claude Code CLI in the sandbox
-- `ai-sandbox agy`: run Antigravity CLI in the sandbox
-- `ai-sandbox copilot`: run Copilot CLI in the sandbox
-- `ai-sandbox opencode`: run OpenCode in the sandbox
-- `ai-sandbox cursor`: run Cursor CLI in the sandbox
-- `ai-sandbox cursor-agent`: run Cursor CLI using its upstream command name
-- `ai-sandbox t3`: start T3 in the sandbox for the current terminal session
-- `ai-sandbox codenomad`: start CodeNomad in the sandbox for the current terminal session
-- `ai-sandbox paseo`: start the Paseo daemon in the sandbox for the current terminal session
-- `ai-sandbox --add-folder <path>`: add a supplemental host folder mapping under `/supplemental`
+1. The `--engine` argument.
+2. The `AI_SANDBOX_ENGINE` environment variable.
+3. Automatic detection.
 
-Maintenance:
+Automatic mode chooses healthy Docker first, then healthy Podman. An explicit unavailable engine fails without switching engines. `--engine auto` overrides an environment selection.
 
-- `ai-sandbox doctor`: run the in-container diagnostics for the current workspace sandbox
-- `ai-sandbox stop`: stop the current workspace container without deleting it
-- `ai-sandbox rm`: remove the current workspace container but keep its persisted volumes
-- `ai-sandbox reset-config`: restore persisted config files from the image defaults while preserving auth and most runtime data
-- `ai-sandbox reset-state`: remove the current workspace container and all persisted state volumes for that workspace, including auth
-- `ai-sandbox --update`: rebuild the shared image, then reuse the existing workspace container unless it needs to be recreated
-- `ai-sandbox --rebuild`: rebuild the shared image and always remove and recreate the workspace container
+From a workspace directory, select Podman explicitly:
 
-## Cursor defaults
+```text
+ai-sandbox --engine podman shell
+```
 
-Cursor starts with unrestricted approvals and automatic web-search acceptance enabled. Both `cursor` and `cursor-agent` use the same persisted file credential store, so a login survives container recreation and `ai-sandbox --rebuild`.
+PowerShell and Bash can set the default for their current process:
+
+```powershell
+$env:AI_SANDBOX_ENGINE = 'podman'
+```
+
+```bash
+export AI_SANDBOX_ENGINE=podman
+```
+
+Podman integration uses the native `podman` CLI. It requires no Docker compatibility socket, Docker CLI alias, or `DOCKER_HOST` setting.
 
 ## Windows
 
-Requirements:
+Windows requires the following:
 
-- Windows 11
-- Docker Desktop
-- PowerShell 5.1+ or PowerShell 7+
+- Windows 11 and PowerShell
+- Docker Desktop or native Podman with a running Podman Machine
+- Access to the workspace and supplemental host folders
 
-Recommended install:
+For the verified Podman setup, use a rootful WSL machine:
 
-1. Add the `/bin` directory to your `PATH`.
-2. Open PowerShell in a project directory and run `ai-sandbox`.
+1. Follow the official [Podman installation instructions](https://podman.io/docs/installation).
+2. In Podman Desktop, open **Settings > Resources** and select **Create new** in the Podman tile.
+3. Follow [Creating a Podman machine](https://podman-desktop.io/docs/podman/creating-a-podman-machine), with the WSL provider and **Machine with root privileges** enabled.
+4. Start the machine in Podman Desktop.
+5. Confirm the rootful connection using the [Podman connection guide](https://podman-desktop.io/docs/podman/setting-podman-machine-default-connection).
+6. From this repository, run the host diagnostic:
 
-Notes:
+   ```powershell
+   powershell.exe -NoProfile -File scripts/doctor.ps1 -Engine podman
+   ```
 
-- OneDrive-backed paths are supported as normal Docker Desktop bind mounts.
-- The launcher resolves the current directory before calling Docker, so spaces in paths are safe.
-- If Docker Desktop has not been granted access to the drive, the mount will fail; see troubleshooting.
+The diagnostic must report client and server versions and `ready: true`. The launcher never creates, starts, resets, or reconfigures a machine automatically.
+
+Podman Desktop and the CLI have different machine defaults. Bare CLI machine initialization defaults to rootless; follow the rootful setup specified here. See [Podman machine initialization](https://docs.podman.io/en/stable/markdown/podman-machine-init.1.html).
+
+Add this repository's `bin` directory to your `PATH`, then run the launcher from PowerShell in your workspace. Paths with spaces and OneDrive-backed workspaces passed Windows validation. For Docker Desktop mount access, see [Windows mount recovery](troubleshooting.md#workspace-mount-fails-on-windows).
 
 ## Linux
 
-Requirements:
+Linux requires the following:
 
-- Docker Engine
-- `bash`
-- `sha256sum`
+- Bash and `sha256sum`
+- Docker Engine accessible to your user, or working rootless Podman
+- For Podman, user namespaces and at least 65536 subordinate UIDs and GIDs assigned in `/etc/subuid` and `/etc/subgid`
 
-Install:
+Follow the distribution-specific [Podman installation instructions](https://podman.io/docs/installation) for its namespace, storage, and networking dependencies. Run Podman as your regular user; `podman info` must succeed and report `rootless: true`.
 
-1. Add [bin/ai-sandbox](bin/ai-sandbox) to your `PATH`.
-2. Run it from any workspace directory.
+Add this repository's `bin` directory to your `PATH`. Run `ai-sandbox` from your workspace.
 
-Notes:
+Rootless Podman uses `--userns=keep-id --user 0`. Initialization runs as container root, while the `sandbox` user maps to your host UID. Claude Code runs as `sandbox`; shell and most other tools run as container root. These rootless container identities do not grant host root privileges. Docker shell writes can be owned by root on Linux hosts.
 
-- The launcher passes `LOCAL_UID` and `LOCAL_GID` into the container.
-- Shell and most tool commands run as root inside the sandbox, so files created in `/workspace/<project-folder-slug>` may be owned by root on Linux hosts. Claude Code runs as the mapped `sandbox` UID because Claude blocks `--dangerously-skip-permissions` as root.
+When Podman reports SELinux enabled, the launcher adds private `:Z` labeling to the workspace mount. Supplemental mounts use `:ro,z` or `:rw,z`. No relabel option is added when SELinux is disabled. See [Podman volume labeling](https://docs.podman.io/en/v6.1.3/markdown/podman-run.1.html#volume-v-source-volume-host-dir-container-dir-options).
 
-## T3 access
+Enforcing SELinux access remains unverified. Live acceptance on an enforcing host is required before whole-feature completion. See [SELinux recovery](troubleshooting.md#selinux-mount-denials).
 
-- Host URL: `http://<workspace-127.x.y.z>:3773`
-- The host address is a workspace-specific loopback address, such as `127.91.42.17`, derived from the workspace path.
-- The shell banner prints the chosen URL for the current workspace sandbox.
-- Open the exact printed URL. Do not rewrite it to `localhost` or `127.0.0.1` when running multiple T3 sandboxes at once, because T3 browser cookies are scoped by host.
-- The URL is not live in plain shell mode; run `ai-sandbox t3` or `t3` inside the sandbox shell before opening it in a browser.
+## Commands
 
-## CodeNomad access
+From a workspace directory, use these commands:
 
-- Host URL: `http://<workspace-127.x.y.z>:9899`
-- The shell banner prints the chosen URL for the current workspace sandbox.
-- The URL is not live in plain shell mode; run `ai-sandbox codenomad` or `codenomad` inside the sandbox shell before opening it in a browser.
-- CodeNomad runs inside the sandbox and uses the sandbox's `opencode` binary, config, auth, and workspace files.
+| Command | Result |
+|---|---|
+| `ai-sandbox` or `ai-sandbox shell` | Start or reuse the workspace container and open a shell |
+| `ai-sandbox codex` | Run Codex; other tool names are `claude`, `agy`, `copilot`, `opencode`, `cursor`, and `cursor-agent` |
+| `ai-sandbox t3`, `ai-sandbox codenomad`, or `ai-sandbox paseo` | Run the service in the foreground for this terminal session |
+| `ai-sandbox doctor` | Run diagnostics inside the workspace container |
+| `ai-sandbox stop` | Stop the workspace container, preserving it and its volumes |
+| `ai-sandbox rm` | Remove the workspace container, preserving its four state volumes |
+| `ai-sandbox reset-config` | Restore image defaults, preserving credentials and most runtime data |
+| `ai-sandbox --update` | Refresh the engine's shared image; recreate an incompatible container when needed |
+| `ai-sandbox --rebuild` | Refresh the engine's shared image and always recreate the workspace container |
 
-## Paseo access
+**Warning:** `ai-sandbox reset-state` deletes the workspace's configuration, authentication, data, and cache volumes in the selected engine.
 
-- Host daemon address: `<workspace-127.x.y.z>:6767`
-- The shell banner prints the chosen address for the current workspace sandbox.
-- Run `ai-sandbox paseo` or `paseo` inside the sandbox shell to start the daemon in the foreground.
-- Use the Paseo CLI, app, or other clients to connect to that daemon.
-- Paseo runs inside the sandbox and orchestrates the sandbox's installed coding CLIs.
-- The sandbox starts Paseo with `--no-relay` by default so daemon traffic stays local to the host/container boundary.
-- To opt into Paseo's public relay, edit `/state/config/shared/sandbox.config` inside the sandbox and set `paseo_relay=1`; any other value keeps `--no-relay` enabled.
+All stop, removal, and reset operations target only the selected engine and workspace. Use an explicit `--engine` for maintenance when both engines are installed. Engines keep separate images, containers, and four-volume state; switching engines does not migrate state. Host workspace files and supplemental mapping files are shared. See [Persistence boundaries](config-management.md#persistence-boundaries).
 
-## Published web ports
+Cursor uses unrestricted approvals and automatic web-search acceptance. Both Cursor command names share persisted file credentials.
 
-- All published services use the same workspace-specific host address.
-- Container ports `8080` and `3000` are published on matching host ports at that address.
-- The shell banner prints all host-visible URLs for the current workspace sandbox.
+## Service addresses
+
+Open the exact URLs printed by the shell banner or service startup output. Shell mode prints reserved addresses; start the corresponding service before opening its URL.
+
+| Service | Container port |
+|---|---|
+| T3 | 3773 |
+| CodeNomad | 9899 |
+| Paseo daemon | 6767 |
+| Alternate web application | 8080 |
+| Application | 3000 |
+
+Docker on both platforms and native Linux Podman publish matching host ports on a workspace-specific `127.x.y.z` address. Windows Podman publishes on `127.0.0.1` with workspace-specific blocks of five host ports in `20000-49999`. Host ports can change after recreation if a candidate block is occupied. See the [allocation contract](architecture.md#service-endpoints).
+
+Docker's different loopback hosts separate browser cookies between workspaces. Windows Podman's different ports on `127.0.0.1` do not provide that separation. [HTTP cookies share a host across ports](https://www.rfc-editor.org/rfc/rfc6265.html#section-8.5). If browser sessions interfere, try separate browser profiles.
+
+CodeNomad uses the sandbox's OpenCode installation, credentials, and workspace. Paseo clients connect to its printed daemon address and use the sandbox's provider CLIs.
+
+Paseo relay connectivity is disabled by default through `PASEO_RELAY_ENABLED=0`. To enable it, set `paseo_relay=1` in `/state/config/shared/sandbox.config`, then restart Paseo. The launcher invokes `paseo daemon run --home /state/data/paseo`.
 
 ## Supplemental folders
 
-Supplemental folders let you bind-mount host directories into the sandbox outside the main workspace. They are mounted in the container under `/supplemental/<name>`.
+Supplemental host folders appear under `/supplemental/<name>`. They default to read-only. Both engines read the same host mapping files:
 
-Mappings can be local to the current workspace or global to the current host user. Local mappings override global mappings with the same `/supplemental/<name>` target and print a warning.
+- Workspace: `<workspace>/.ai-sandbox/supplemental-folders.config`
+- User: `~/.ai-sandbox/supplemental-folders.config`
 
-Supplemental folder definitions for the current workspace are stored in `<workspace>/.ai-sandbox/supplemental-folders.config` and globally under `~/.ai-sandbox/supplemental-folders.config`
+Use `--add-folder` with a host directory. The following syntax comes from launcher help; replace `HOST_FOLDER` with an existing directory:
 
-#### Parameters
-- `--as <mount-point-alias>`: Change the name of the mount point within the container. If `--as` is omitted, the container folder name defaults to the host folder name. Supplemental folders are read-only by default.
-- `--global`: This flag adds the supplimental folder definition to the global config rather than the local workspace config. Entries are added to the local config by default.
-- `--read-write`: Use this flag to allow the sandbox to modify the host folder. Supplemental folders are added as read-only by default.
-
-#### Interactive example:
-
-```powershell
-ai-sandbox --add-folder "D:\My_Project_Folder\skills"
+```text
+ai-sandbox --engine podman --add-folder HOST_FOLDER --as shared-files --local --read-only --yes
 ```
 
-#### Scripted examples:
+Use `--global` for user-wide mappings or `--read-write` to permit host writes. Local mappings override global mappings with the same target and print a warning. Changed mappings recreate the selected engine's container on its next launch. The interactive flow can offer an immediate rebuild.
+
+## Build, diagnose, and smoke-check
+
+Run helpers from the repository root. They use the same engine precedence as the launchers. PowerShell accepts `-Engine` and `--engine`; Bash accepts `--engine`.
+
+Windows PowerShell examples:
 
 ```powershell
-ai-sandbox --add-folder "D:\My_Project_Folder\skills" --as my-skills --global --read-only
-ai-sandbox --add-folder "D:\Shared\scratch" --as scratch --local --read-write --yes
+powershell.exe -NoProfile -File scripts/build-image.ps1 --engine podman
+powershell.exe -NoProfile -File scripts/doctor.ps1 -Engine podman
+powershell.exe -NoProfile -File tests/smoke/smoke.ps1 --engine podman --skip-build
 ```
 
-**NOTE:** New or changed supplemental folders require recreating the workspace container. `--add-folder` asks whether to run `ai-sandbox --rebuild` after updating the config.
+Linux Bash examples:
+
+```bash
+bash scripts/build-image.sh --engine podman
+bash scripts/doctor.sh --engine podman
+bash tests/smoke/smoke.sh --engine podman --skip-build
+```
+
+Use `docker` instead of `podman` for Docker. Build helpers and smoke helpers accept `-NoCache` on PowerShell or `--no-cache` on Bash. Smoke builds first unless `-SkipBuild` or `--skip-build` selects an existing image. Its unique disposable container and cleanup stay in the selected engine.
+
+Builds use the existing `Dockerfile` and `ai-sandbox:latest` tag in each engine's image store. Docker pulls with `--pull`; Podman uses `--pull=always`. Launcher `--update` and `--rebuild` also disable the build cache.
+
+The host doctor reports the engine, client version, server version, and readiness. Local Linux Podman has no separate server. `ai-sandbox doctor` instead starts or reuses the workspace container and reports installed tools inside it.

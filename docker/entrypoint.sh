@@ -19,7 +19,6 @@ CONTAINER_APP_PORT="${AI_SANDBOX_APP_PORT:-$DEFAULT_APP_PORT}"
 HOST_APP_URL="${AI_SANDBOX_APP_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_APP_PORT:-$CONTAINER_APP_PORT}}"
 WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
 SANDBOX_CONFIG_PATH="/state/config/shared/sandbox.config"
-REAL_BIN_DIR="${AI_SANDBOX_REAL_BIN_DIR:-/opt/ai-sandbox/bin}"
 
 ensure_runtime_user() {
   local target_uid="${LOCAL_UID:-1000}"
@@ -79,11 +78,16 @@ run_as_sandbox() {
 # Child harnesses inherit completed initialization from their server or shell.
 # Reinitializing here races with live CLI state and other provider probes.
 if [[ "$(id -u)" == "0" && "${AI_SANDBOX_INITIALIZED:-}" != "1" ]]; then
+  # Concurrent execs share this home. Protect symlink replacement and ownership together.
+  exec 8>/state/.runtime-init.lock
+  flock 8
   ensure_runtime_user
   /opt/ai-sandbox/bootstrap/init-state.sh
   chown -R sandbox:sandbox /state /home/sandbox
   git config --system --add safe.directory '*' 2>/dev/null || true
   export AI_SANDBOX_INITIALIZED=1
+  flock -u 8
+  exec 8>&-
 fi
 
 warn_missing_git_identity() {
@@ -203,24 +207,28 @@ run_doctor() {
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
   echo "opencode: $(opencode --version 2>/dev/null || echo unavailable)"
   echo "cursor: $(cursor --version 2>/dev/null || echo unavailable)"
-  echo "codenomad: $(codenomad --version 2>/dev/null || echo unavailable)"
-  echo "paseo: $(paseo --version 2>/dev/null || echo unavailable)"
+  echo "codenomad: $(/opt/ai-sandbox/bin/codenomad --version 2>/dev/null || echo unavailable)"
+  echo "paseo: $(/opt/ai-sandbox/bin/paseo --version 2>/dev/null || echo unavailable)"
   echo "node: $(node --version 2>/dev/null || echo unavailable)"
   echo "npm: $(npm --version 2>/dev/null || echo unavailable)"
-  echo "t3: $(t3 --help >/dev/null 2>&1 && echo available || echo unavailable)"
+  echo "t3: $(/opt/ai-sandbox/bin/t3 --help >/dev/null 2>&1 && echo available || echo unavailable)"
 }
 
 run_t3() {
+  local service_args=""
+  (( $# == 0 )) || printf -v service_args ' %q' "$@"
   echo "Starting T3 on $HOST_T3_URL"
-  run_as_root "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; /opt/ai-sandbox/bin/t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --base-dir /state/data/t3 --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
+  run_as_root "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; set -o pipefail; /opt/ai-sandbox/bin/t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --base-dir /state/data/t3 --auto-bootstrap-project-from-cwd $service_args 2>&1 | rewrite_t3_output"
 }
 
 run_codenomad() {
+  local service_args=""
+  (( $# == 0 )) || printf -v service_args ' %q' "$@"
   echo "Starting CodeNomad on $HOST_CODENOMAD_URL"
-  run_as_root "$(declare -f rewrite_codenomad_output); export CLI_HTTP=true; export CLI_HTTPS=false; export CLI_HOST=0.0.0.0; export CLI_HTTP_PORT='$CONTAINER_CODENOMAD_PORT'; export CLI_WORKSPACE_ROOT='$WORKSPACE_PATH'; export CODENOMAD_SKIP_AUTH=true; /opt/ai-sandbox/bin/codenomad --http=true --https=false --host 0.0.0.0 --http-port '$CONTAINER_CODENOMAD_PORT' --workspace-root '$WORKSPACE_PATH' --dangerously-skip-auth 2>&1 | rewrite_codenomad_output"
+  run_as_root "$(declare -f rewrite_codenomad_output); export CLI_HTTP=true; export CLI_HTTPS=false; export CLI_HOST=0.0.0.0; export CLI_HTTP_PORT='$CONTAINER_CODENOMAD_PORT'; export CLI_WORKSPACE_ROOT='$WORKSPACE_PATH'; export CODENOMAD_SKIP_AUTH=true; set -o pipefail; /opt/ai-sandbox/bin/codenomad --http=true --https=false --host 0.0.0.0 --http-port '$CONTAINER_CODENOMAD_PORT' --workspace-root '$WORKSPACE_PATH' --dangerously-skip-auth $service_args 2>&1 | rewrite_codenomad_output"
 }
 
-get_paseo_relay_flag() {
+get_paseo_relay_enabled() {
   local paseo_relay=""
 
   if [[ -f "$SANDBOX_CONFIG_PATH" ]]; then
@@ -228,14 +236,14 @@ get_paseo_relay_flag() {
   fi
 
   if [[ "$paseo_relay" == "1" ]]; then
-    printf ''
+    printf '%s' 'true'
   else
-    printf '%s' '--no-relay'
+    printf '%s' 'false'
   fi
 }
 
 cleanup_paseo_daemon() {
-  paseo daemon stop --home /state/data/paseo --force >/dev/null 2>&1 || true
+  /opt/ai-sandbox/bin/paseo daemon stop --home /state/data/paseo --force >/dev/null 2>&1 || true
   rm -f /state/data/paseo/paseo.pid
 }
 
@@ -386,11 +394,13 @@ NODE
 }
 
 run_paseo() {
-  local PASEO_RELAY_FLAG
-  PASEO_RELAY_FLAG="$(get_paseo_relay_flag)"
+  local service_args=""
+  (( $# == 0 )) || printf -v service_args ' %q' "$@"
+  local PASEO_RELAY_ENABLED
+  PASEO_RELAY_ENABLED="$(get_paseo_relay_enabled)"
 
   echo "Starting Paseo on $HOST_PASEO_ADDRESS"
-  run_as_root "$(declare -f rewrite_paseo_output cleanup_paseo_daemon ensure_paseo_workspace_registry); trap cleanup_paseo_daemon INT TERM EXIT; cleanup_paseo_daemon; export PASEO_HOME=/state/data/paseo; ensure_paseo_workspace_registry; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; /opt/ai-sandbox/bin/paseo daemon start --home /state/data/paseo --listen 0.0.0.0:'$CONTAINER_PASEO_PORT' --foreground $PASEO_RELAY_FLAG > >(rewrite_paseo_output) 2>&1 & paseo_pid=\$!; wait \"\$paseo_pid\""
+  run_as_root "$(declare -f rewrite_paseo_output cleanup_paseo_daemon ensure_paseo_workspace_registry); trap cleanup_paseo_daemon INT TERM EXIT; cleanup_paseo_daemon; export PASEO_HOME=/state/data/paseo; ensure_paseo_workspace_registry; export PASEO_LISTEN=0.0.0.0:'$CONTAINER_PASEO_PORT'; export PASEO_RELAY_ENABLED='$PASEO_RELAY_ENABLED'; /opt/ai-sandbox/bin/paseo daemon run --home /state/data/paseo $service_args > >(rewrite_paseo_output) 2>&1 & paseo_pid=\$!; wait \"\$paseo_pid\""
 }
 
 dispatch() {

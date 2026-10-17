@@ -1,9 +1,10 @@
 [CmdletBinding()]
-param()
+param([string]$Engine = $(if ($env:AI_SANDBOX_ENGINE) { $env:AI_SANDBOX_ENGINE } else { 'auto' }))
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "../lib/runtime-engine.ps1")
 
-$suffix = [guid]::NewGuid().ToString("N")
+$suffix = "$script:EngineCommand-$([guid]::NewGuid().ToString('N'))"
 $containerName = "ai-sandbox-claude-first-run-$suffix"
 $volumes = @(
     "ai-sandbox-claude-first-run-config-$suffix",
@@ -17,7 +18,7 @@ $cleanupErrors = New-Object System.Collections.Generic.List[string]
 
 try {
     foreach ($volume in $volumes) {
-        & docker volume create $volume | Out-Null
+        Invoke-TestEngine volume create $volume | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "Failed to create test volume $volume."
         }
@@ -29,7 +30,7 @@ try {
     try {
         $ErrorActionPreference = "Continue"
         $PSNativeCommandUseErrorActionPreference = $false
-        $output = & docker run --name $containerName `
+        $output = Invoke-TestEngine run --name $containerName `
             -v "$($volumes[0]):/state/config" `
             -v "$($volumes[1]):/state/auth" `
             -v "$($volumes[2]):/state/data" `
@@ -49,7 +50,7 @@ try {
         throw "Claude reported an invalid empty configuration on first run."
     }
 
-    $jsonType = & docker run --rm --entrypoint jq `
+    $jsonType = Invoke-TestEngine run --rm --entrypoint jq `
         -v "$($volumes[2]):/state/data" `
         ai-sandbox:latest -r type /state/data/claude/claude.json
     if ($LASTEXITCODE -ne 0 -or ($jsonType -join "").Trim() -ne "object") {
@@ -61,10 +62,9 @@ try {
     $originalError = $_
 } finally {
     try {
-        $existing = & docker ps -a --filter "name=^/${containerName}$" --format "{{.Names}}" 2>$null
-        if ($existing -eq $containerName) {
-            & docker rm -f $containerName | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "docker rm exited $LASTEXITCODE" }
+        if (Test-TestContainerExists $containerName) {
+            Invoke-TestEngine rm -f $containerName | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "$script:EngineCommand rm exited $LASTEXITCODE" }
         }
     } catch {
         $cleanupErrors.Add("container $containerName`: $($_.Exception.Message)")
@@ -72,8 +72,8 @@ try {
 
     foreach ($volume in $createdVolumes) {
         try {
-            & docker volume rm $volume | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "docker volume rm exited $LASTEXITCODE" }
+            Invoke-TestEngine volume rm $volume | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "$script:EngineCommand volume rm exited $LASTEXITCODE" }
         } catch {
             $cleanupErrors.Add("volume $volume`: $($_.Exception.Message)")
         }

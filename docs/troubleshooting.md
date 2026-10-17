@@ -1,84 +1,85 @@
 # Troubleshooting
 
-## T3 stays on an older version after rebuilding
+## Engine client is missing
 
-Older launchers used `docker build --pull`, which can reuse the cached npm install layer even when newer releases exist. Use the updated launcher and run `ai-sandbox --rebuild t3` from the affected workspace. Explicit updates now bypass the build cache and install `t3@latest` (stable, not nightly).
+Run the host doctor from the repository root using the [platform-specific diagnostic command](usage.md#build-diagnose-and-smoke-check). A missing client differs from an installed client whose server is unreachable.
 
-To verify the installed version, run `/opt/ai-sandbox/bin/t3 --version` inside the sandbox and compare it with `npm view t3@latest version`. Releases published after the build require another explicit update. Rebuilding preserves workspace config, auth, data, and cache volumes; resetting state is unnecessary.
+Install the selected engine and make its native CLI available on `PATH`. Use the official [Podman installation guide](https://podman.io/docs/installation) for Podman. For Docker, retain Docker Desktop on Windows or Docker Engine on Linux.
 
-## Docker is not available
+An explicit `--engine` selection fails without fallback. Automatic mode prefers healthy Docker, then healthy Podman. Check `AI_SANDBOX_ENGINE` if the launcher selects an unexpected engine.
 
-- Verify `docker version` succeeds on the host.
-- On Windows, make sure Docker Desktop is running.
+## Engine server is unavailable
+
+On Windows Docker, start Docker Desktop. On Linux Docker, ask the host administrator to restore daemon access for your user.
+
+For Windows Podman, inspect machine and connection state with these read-only commands:
+
+```powershell
+podman machine list
+podman system connection list
+podman version
+```
+
+Start the intended existing machine in Podman Desktop, then rerun the host doctor. If the doctor suggests a machine-start command, use the name of that machine. Complete any required Windows consent or WSL setup through the official installer. Follow the [rootful Windows setup](usage.md#windows) if no machine exists.
+
+The launcher and host doctor never initialize, start, reset, or reconfigure machines automatically. A working client version alone does not prove server readiness.
 
 ## Workspace mount fails on Windows
 
-- Confirm Docker Desktop is allowed to access the drive containing the workspace.
-- Re-run from PowerShell so the launcher can resolve the canonical path cleanly.
-- OneDrive-backed paths are supported, but they still depend on Docker Desktop file sharing.
+For Docker Desktop with Hyper-V, check the workspace drive or folder in **Settings > Resources > File sharing**. The WSL 2 backend shares host files automatically; check host-folder permissions and local file availability instead. For OneDrive, make sure workspace files are available locally. See [Docker Desktop file sharing](https://docs.docker.com/desktop/settings-and-maintenance/settings/#file-sharing).
 
-## T3 disconnects when multiple sandboxes are open
+For Podman, confirm that the selected machine can access the host folder and that its native connection is reachable. Docker Desktop drive-sharing settings do not configure Podman mounts.
 
-- Open the exact T3 URL printed by `ai-sandbox`; it may use a workspace-specific address such as `127.91.42.17`.
-- Do not rewrite the printed T3 URL to `localhost` or `127.0.0.1`, because browser cookies are scoped by host and can collide across T3 instances.
+Run from PowerShell in the intended workspace. Both launchers preserve paths containing spaces. Check that supplemental source directories exist and that read-only mappings are intentional.
 
-## Published service address is unavailable
+## Rootless Podman prerequisites are missing
 
-- Each workspace publishes T3, CodeNomad, Paseo, and web app ports `8080` and `3000` on one workspace-specific `127.x.y.z` address with matching host/container ports.
-- If Docker reports a bind conflict, stop or remove the process/container already using that exact workspace address and port.
-- `ai-sandbox --rebuild` recreates the current workspace container with the current fixed service mappings.
+Run the launcher as your regular Linux user. `podman info` must succeed and report rootless operation. The Linux launcher rejects rootful Podman.
 
-## Config changes were overwritten
+Ask an administrator to assign at least 65536 subordinate UIDs and GIDs in `/etc/subuid` and `/etc/subgid`. Log out and back in after assignment. If namespace, storage, or networking errors remain, follow your distribution's [Podman installation instructions](https://podman.io/docs/installation).
 
-- Normal startup does not overwrite persisted config.
-- If config changed unexpectedly, check whether `reset-config` was used for that workspace.
+The launcher uses `--userns=keep-id --user 0`; do not replace it with an unverified namespace policy. Initialization needs container-root privileges, and `sandbox` maps to your host UID.
 
-## Auth disappeared
+## SELinux mount denials
 
-- Auth should survive container recreation because it lives in named volumes.
-- `reset-state` removes auth volumes by design.
+Enforcing SELinux acceptance remains unverified and required before whole-feature completion. Validate access as a regular user with rootless Podman on an enforcing Linux host.
 
-## T3 cannot reach Codex
+When Podman reports SELinux enabled, the launcher uses private `:Z` labeling for the workspace and shared `:ro,z` or `:rw,z` for supplemental mounts. Ask the administrator to inspect audit denials and confirm that the intended directories permit relabeling. Avoid mapping system directories or an entire home directory that other confined services need.
 
-- Verify `codex` is authenticated inside the sandbox.
-- Run `codex app-server --help` inside the sandbox to confirm the CLI supports the app-server mode.
-- Rebuild with `ai-sandbox --update` if the image was built against an older CLI release.
+For a path that cannot be relabeled, Podman provides the explicit native option `--security-opt label=disable`. It disables SELinux separation for the container. The launcher has no passthrough option for it and never selects it automatically. Prefer a dedicated relabelable project directory; discuss any custom native invocation with the administrator. See [Podman labeling guidance](https://docs.podman.io/en/v6.1.3/markdown/podman-run.1.html#volume-v-source-volume-host-dir-container-dir-options).
 
-## Claude Code is unavailable or logged out
+## Port conflict or Windows Podman port exhaustion
 
-- Run `claude --version` or `ai-sandbox doctor` to verify the CLI is installed.
-- Run `ai-sandbox claude` and complete the login flow if authentication is required.
-- Rebuild with `ai-sandbox --update` to install the latest package release.
-- Claude state survives `ai-sandbox rm`, but `ai-sandbox reset-state` intentionally removes it.
+Open the exact endpoint printed by the launcher. Docker and native Linux Podman use workspace-specific loopback addresses with matching ports. Windows Podman uses `127.0.0.1` and five-port blocks in `20000-49999`.
 
-## Cursor CLI is unavailable or logged out
+If a bind conflict occurs, identify the process or container owning that exact endpoint before stopping it. Windows Podman tries up to 32 candidate blocks. The error `No available Podman localhost port block after 32 attempts in 20000-49999.` means those candidates were unavailable.
 
-- Run `cursor --version` inside the sandbox to verify the alias and installed CLI.
-- Run `cursor status`, then `cursor login` if authentication is required.
-- Rebuild with `ai-sandbox --update` to install the latest Cursor CLI release.
-- If state was intentionally cleared with `reset-state`, authenticate again.
+Release an identified conflicting endpoint, then retry the launcher. Forwarding sockets can take time to close after removal. Follow newly printed URLs after recreation because the host ports can change. An unreachable Podman Machine or broken forwarding requires machine recovery, not repeated state resets.
 
-## CodeNomad does not start
+If a printed service URL does not respond, start its service command first. Shell mode reserves ports without starting T3, CodeNomad, or Paseo.
 
-- Verify the image has been rebuilt after adding CodeNomad support.
-- Run `ai-sandbox doctor` and confirm `codenomad` and `opencode` both report versions inside the sandbox.
-- Verify `opencode` is authenticated inside the sandbox before expecting CodeNomad to open working sessions.
-- If a future CodeNomad release changes its auth bootstrap requirements, revisit the launcher flags around `--dangerously-skip-auth` for loopback-only sandbox use.
+## T3 disconnects with concurrent sandboxes
 
-## Paseo does not start
+Open each exact printed URL. Docker's distinct loopback hosts keep browser cookies separate. Replacing them with `localhost` defeats that separation.
 
-- Verify the image has been rebuilt after adding Paseo support.
-- Run `ai-sandbox doctor` and confirm `paseo` reports a version inside the sandbox.
-- Verify the provider CLIs that Paseo should manage, such as `codex` and `opencode`, are installed and authenticated inside the sandbox.
-- If direct local connectivity fails, verify the daemon address and the `daemon.allowedHosts` configuration under `PASEO_HOME/config.json`.
-- If Paseo reports another daemon already running after an interrupted session, rerun `ai-sandbox paseo`; the launcher now stops leftover daemon state and removes stale PID files before starting.
+Windows Podman uses different ports on `127.0.0.1`; browser cookies share that host. If sessions interfere, try separate browser profiles.
 
-## Paseo relay is unavailable
+## Configuration or authentication differs after switching engines
 
-- This is expected by default: `ai-sandbox paseo` passes `--no-relay` unless the shared sandbox config opts in.
-- To enable relay pairing, edit `/state/config/shared/sandbox.config` inside the sandbox and set `paseo_relay=1`, then restart `ai-sandbox paseo`.
-- Run `ai-sandbox reset-config` to restore the default `paseo_relay=0`.
+Docker and Podman have separate config, auth, data, and cache volumes. Select the original engine to recover its state, or authenticate separately in the other engine. There is no automatic state migration.
 
-## Paseo local speech model warnings
+Normal startup preserves persisted configuration and credentials. `reset-config` restores presets; `reset-state` deletes all four workspace volumes only in the selected engine. Host workspace files and host supplemental mapping files remain shared.
 
-- The initial warnings about missing local STT/TTS models are expected before the first successful model download.
+## Installed tool is unavailable or outdated
+
+Run `ai-sandbox doctor` to inspect installed tools inside the selected workspace container. Use the host doctor first if the engine itself is unavailable.
+
+Run `ai-sandbox --update` to refresh the image. Run `ai-sandbox --rebuild` to refresh the image and force container recreation. Explicit updates bypass the build cache; releases published after a build require another update. Configuration, credentials, data, and caches survive recreation.
+
+## Service cannot use a coding CLI
+
+Authenticate the provider CLI inside the selected engine's sandbox. T3 uses Codex; CodeNomad uses OpenCode; Paseo uses the provider CLIs it orchestrates. For Claude Code or Cursor login failures, follow [Authentication](auth.md).
+
+For Paseo local connectivity, check the printed daemon address and `daemon.allowedHosts` in `/state/config/paseo/config.json`. Rerun `ai-sandbox paseo` after an interrupted session to clean leftover daemon state.
+
+Paseo relay connectivity defaults to disabled through `PASEO_RELAY_ENABLED=0`. Set `paseo_relay=1` in `/state/config/shared/sandbox.config`, then restart Paseo to enable relay pairing. `reset-config` restores the disabled default.

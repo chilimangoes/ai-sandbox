@@ -37,12 +37,11 @@ if ($psLauncher -match 'DefaultHttpContainerPort') {
     throw "Expected bin/ai-sandbox.ps1 to omit container port 80 from default publishing."
 }
 
-if ($psLauncher -notmatch '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultAltHttpContainerPort\}:\$\{DefaultAltHttpContainerPort\}"') {
-    throw "Expected bin/ai-sandbox.ps1 to publish host port for container port 8080."
+foreach ($service in @('ALT_HTTP', 'APP')) {
+    if ($psLauncher -notmatch "Name = '$service'; Port = ") { throw "Expected the $service endpoint definition." }
 }
-
-if ($psLauncher -notmatch '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultAppContainerPort\}:\$\{DefaultAppContainerPort\}"') {
-    throw "Expected bin/ai-sandbox.ps1 to publish host port for container port 3000."
+if ($psLauncher -notmatch '\$engineArgs \+= @\(''-p'', "\$\(\$endpoint.HostAddress\):\$\(\$endpoint.HostPort\):\$\(\$endpoint.ContainerPort\)"\)') {
+    throw 'Expected separate host and container ports in native publish arguments.'
 }
 
 if ($bashLauncher -match 'DEFAULT_HTTP_CONTAINER_PORT') {
@@ -61,12 +60,9 @@ if ($psLauncher -match 'AI_SANDBOX_HTTP_URL') {
     throw "Expected bin/ai-sandbox.ps1 not to advertise unpublished host port 80."
 }
 
-if ($psLauncher -notmatch 'AI_SANDBOX_ALT_HTTP_URL=http://\$\(\$Meta\.HostAddress\):\$DefaultAltHttpContainerPort') {
-    throw "Expected bin/ai-sandbox.ps1 to pass AI_SANDBOX_ALT_HTTP_URL into the container."
-}
-
-if ($psLauncher -notmatch 'AI_SANDBOX_APP_URL=http://\$\(\$Meta\.HostAddress\):\$DefaultAppContainerPort') {
-    throw "Expected bin/ai-sandbox.ps1 to pass AI_SANDBOX_APP_URL into the container."
+if ($psLauncher -notmatch 'AI_SANDBOX_\$\(\$service.Name\)_\$\(\$service.Url\)=\$value' -or
+    $psLauncher -notmatch 'Get-EndpointEnvironment -Meta \$Meta -Endpoints \$Meta.Endpoints') {
+    throw 'Expected host-visible URLs from inspected endpoints at creation and exec.'
 }
 
 if ($bashLauncher -match 'AI_SANDBOX_HTTP_URL') {

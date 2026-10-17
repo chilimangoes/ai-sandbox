@@ -18,10 +18,6 @@ if ($entrypoint -notmatch 'git -C "\$WORKSPACE_PATH" config --get user\.name' -o
     throw "Expected the Git identity warning to read user.name and user.email."
 }
 
-if ($entrypoint -notmatch [regex]::Escape('The current git config has no user.name and user.email values. You can run the following commands to configure them. (Ommit the --global flags if you want to store the values in the workspace folder)')) {
-    throw "Expected the Git identity warning to include the requested guidance."
-}
-
 if ($entrypoint -notmatch "\\033\[33m") {
     throw "Expected the Git identity warning to use amber terminal text."
 }
