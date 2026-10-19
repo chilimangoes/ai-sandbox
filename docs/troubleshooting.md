@@ -20,9 +20,15 @@ podman system connection list
 podman version
 ```
 
-Start the intended existing machine in Podman Desktop, then rerun the host doctor. If the doctor suggests a machine-start command, use the name of that machine. Complete any required Windows consent or WSL setup through the official installer. Follow the [rootful Windows setup](usage.md#windows) if no machine exists.
+Start the intended existing machine in Podman Desktop, then rerun the host doctor. If the doctor suggests a machine-start command, use the name of that machine. Complete any required Windows consent or WSL setup through the official installer. Follow the [rootless Windows setup](usage.md#windows) if no machine exists.
 
 The launcher and host doctor never initialize, start, reset, or reconfigure machines automatically. A working client version alone does not prove server readiness.
+
+## Containers or images disappear after switching Podman modes
+
+Rootless and rootful Podman use separate storage, even within the same Windows machine. Switching modes does not delete the previous mode's images, containers, or volumes. Switch back to access them, or build images and sign in to tools in the selected mode. Host workspace files remain shared.
+
+Rootless mode is recommended to limit Linux privileges. See [switching an existing Windows machine](usage.md#switch-an-existing-windows-machine-to-rootless-mode).
 
 ## Workspace mount fails on Windows
 

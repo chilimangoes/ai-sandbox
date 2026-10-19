@@ -19,6 +19,8 @@ Images, containers, and named volumes belong to separate engine stores. Each wor
 
 The workspace and supplemental folders are host bind mounts. Both engines can change the same writable host files. Host `.ai-sandbox` mapping files are shared and survive state resets.
 
+Windows Podman supports rootless and rootful connections. Rootless mode is recommended because the engine runs as an ordinary Linux user inside the virtual machine. This adds a security boundary while retaining access to writable host mounts. The two modes have separate image, container, and volume stores. The launcher uses Podman's configured default connection; it does not change the machine's mode.
+
 ## Container and state layout
 
 The detached container runs an idle process. Later invocations execute commands inside it through the selected engine.

@@ -36,13 +36,13 @@ Windows requires the following:
 - Docker Desktop or native Podman with a running Podman Machine
 - Access to the workspace and supplemental host folders
 
-For the verified Podman setup, use a rootful WSL machine:
+Use a rootless WSL machine for Podman. Rootless mode runs the engine without Linux administrator privileges inside the virtual machine, adding a security boundary. It does not restrict edits to writable mounted folders or change your Windows account permissions. Windows rootful mode is also supported.
 
 1. Follow the official [Podman installation instructions](https://podman.io/docs/installation).
 2. In Podman Desktop, open **Settings > Resources** and select **Create new** in the Podman tile.
-3. Follow [Creating a Podman machine](https://podman-desktop.io/docs/podman/creating-a-podman-machine), with the WSL provider and **Machine with root privileges** enabled.
+3. Follow [Creating a Podman machine](https://podman-desktop.io/docs/podman/creating-a-podman-machine), with the WSL provider and **Machine with root privileges** cleared.
 4. Start the machine in Podman Desktop.
-5. Confirm the rootful connection using the [Podman connection guide](https://podman-desktop.io/docs/podman/setting-podman-machine-default-connection).
+5. Confirm the rootless connection using the [Podman connection guide](https://podman-desktop.io/docs/podman/setting-podman-machine-default-connection).
 6. From this repository, run the host diagnostic:
 
    ```powershell
@@ -51,9 +51,34 @@ For the verified Podman setup, use a rootful WSL machine:
 
 The diagnostic must report client and server versions and `ready: true`. The launcher never creates, starts, resets, or reconfigures a machine automatically.
 
-Podman Desktop and the CLI have different machine defaults. Bare CLI machine initialization defaults to rootless; follow the rootful setup specified here. See [Podman machine initialization](https://docs.podman.io/en/stable/markdown/podman-machine-init.1.html).
+Confirm the selected engine reports rootless operation:
+
+```powershell
+podman info --format '{{.Host.Security.Rootless}}'
+```
+
+The output must be `true` for rootless mode. Bare CLI machine initialization defaults to rootless. See [Podman machine initialization](https://docs.podman.io/en/stable/markdown/podman-machine-init.1.html).
 
 Add this repository's `bin` directory to your `PATH`, then run the launcher from PowerShell in your workspace. Paths with spaces and OneDrive-backed workspaces passed Windows validation. For Docker Desktop mount access, see [Windows mount recovery](troubleshooting.md#workspace-mount-fails-on-windows).
+
+### Switch an existing Windows machine to rootless mode
+
+Rootless and rootful modes use separate images, containers, and volumes. Switching does not migrate or delete that state. Existing rootful state becomes available again when you switch back. Stop workloads before changing modes; restarting the machine interrupts its containers.
+
+In PowerShell, replace `podman-machine-default` with the name from `podman machine list`, then run these commands:
+
+```powershell
+$machineName = 'podman-machine-default'
+podman machine stop $machineName
+podman machine set --rootful=false $machineName
+podman system connection default $machineName
+podman machine start $machineName
+podman info --format '{{.Host.Security.Rootless}}'
+```
+
+The final command must print `true`. The launcher then uses Podman's default connection without additional connection configuration.
+
+Specialized containers that need devices or broader Linux privileges can require rootful mode. Rootless mode does not inherently save disk space or improve speed.
 
 ## Linux
 
@@ -63,7 +88,7 @@ Linux requires the following:
 - Docker Engine accessible to your user, or working rootless Podman
 - For Podman, user namespaces and at least 65536 subordinate UIDs and GIDs assigned in `/etc/subuid` and `/etc/subgid`
 
-Follow the distribution-specific [Podman installation instructions](https://podman.io/docs/installation) for its namespace, storage, and networking dependencies. Run Podman as your regular user; `podman info` must succeed and report `rootless: true`.
+Follow the distribution-specific [Podman installation instructions](https://podman.io/docs/installation) for its namespace, storage, and networking dependencies. Run Podman as your regular user; `podman info` must succeed and report `rootless: true`. Rootless operation limits the engine's Linux privileges; tools retain access to writable mounted folders.
 
 Add this repository's `bin` directory to your `PATH`. Run `ai-sandbox` from your workspace.
 

@@ -1,3 +1,8 @@
+
+<p style="background:#770">
+NOTE: Podman support shelved because Podman networking on Windows is half-baked compared to Docker and would require incorporating a bunch of extra workarounds, like a proxy to translate IP addresses and a tunnel for sandbox containers to access local network resources outside the Podman network.
+</p>
+
 # ai-sandbox
 
 `ai-sandbox` runs AI coding tools against your project directory in a Docker or native Podman container on Windows and Linux.
@@ -32,9 +37,11 @@ The image includes these tools:
 The verified environments are:
 
 - Windows 11 with PowerShell and Docker Desktop
-- Windows 11 with PowerShell and native Podman Machine using a rootful WSL connection
+- Windows 11 with PowerShell and native Podman Machine using a rootless or rootful WSL connection
 - Linux with Bash and Docker Engine
 - Linux with Bash and rootless Podman, with SELinux disabled in live validation
+
+Rootless Podman is recommended for security: the engine runs without Linux administrator privileges. Writable mounted folders remain editable by sandbox tools. See [Podman setup](docs/usage.md#windows).
 
 Enforcing SELinux acceptance remains unverified and required before the Podman feature is complete. See [Linux prerequisites](docs/usage.md#linux).
 

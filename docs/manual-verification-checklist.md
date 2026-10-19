@@ -6,7 +6,8 @@ Acceptance used Docker Engine 29.1.3 and Podman 6.1.4, including the Windows Pod
 
 ## Host setup
 
-- Verify Windows PowerShell with Docker Desktop and native rootful Podman Machine separately.
+- Verify Windows PowerShell with Docker Desktop and native Podman Machine separately; cover rootless and rootful Podman modes.
+- For the recommended rootless Windows setup, confirm `podman info --format '{{.Host.Security.Rootless}}'` prints `true` without a connection override.
 - Verify Linux Bash with Docker Engine and rootless Podman separately.
 - Verify the host doctor reports the selected engine, client/server versions, and readiness. Local Linux Podman has no separate server.
 - Confirm the workspace and supplemental folders are accessible to that engine.
