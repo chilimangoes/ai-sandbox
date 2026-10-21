@@ -282,6 +282,7 @@ ensure_container() {
       --label "ai-sandbox.workspace=${WORKSPACE_PATH}" \
       --label "ai-sandbox.hash=${WORKSPACE_HASH}" \
       --label "ai-sandbox.supplemental-folders=${SUPPLEMENTAL_SIGNATURE}" \
+      --security-opt "seccomp=${REPO_ROOT}/docker/browser-seccomp.json" \
       -p "${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}:${DEFAULT_T3_CONTAINER_PORT}" \
       -p "${HOST_ADDRESS}:${DEFAULT_CODENOMAD_CONTAINER_PORT}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
       -p "${HOST_ADDRESS}:${DEFAULT_PASEO_CONTAINER_PORT}:${DEFAULT_PASEO_CONTAINER_PORT}" \

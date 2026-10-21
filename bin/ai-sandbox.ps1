@@ -206,6 +206,7 @@ function Start-Container {
         "--label", "ai-sandbox.workspace=$($Meta.Workspace)",
         "--label", "ai-sandbox.hash=$($Meta.Hash)",
         "--label", "ai-sandbox.supplemental-folders=$($SupplementalFolders.Signature)",
+        "--security-opt", "seccomp=$(Join-Path $RepoRoot 'docker/browser-seccomp.json')",
         "-p", "$($Meta.HostAddress):${DefaultT3ContainerPort}:${DefaultT3ContainerPort}",
         "-p", "$($Meta.HostAddress):${DefaultCodeNomadContainerPort}:${DefaultCodeNomadContainerPort}",
         "-p", "$($Meta.HostAddress):${DefaultPaseoContainerPort}:${DefaultPaseoContainerPort}",

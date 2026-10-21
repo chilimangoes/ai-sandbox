@@ -52,6 +52,12 @@ Automatic recovery supports the ownership protocol in stable T3 `0.1.x`. Recover
 
 If a server owns the state or verification is uncertain, startup stops with `T3 startup record preserved` and the reason. Examples include unreadable process details, a busy port, a changed record, and an unsupported T3 version. Check the reported process or listener before retrying. Rebuilding preserves the data volume, including the runtime record.
 
+## T3 browser reports missing libraries or a blocked sandbox
+
+The image includes Chrome's shared libraries and system fonts. The launchers apply a seccomp profile that permits Chrome's sandbox namespaces. Run `ai-sandbox --rebuild t3` from the affected workspace to install the image and recreate the container with that profile.
+
+T3 runs as `sandbox`. The `t3 browser setup` command checks the account running setup. Invoking setup from a root shell can print a root warning even when the T3 server runs as `sandbox`.
+
 ## Claude Code is unavailable or logged out
 
 - Run `claude --version` or `ai-sandbox doctor` to verify the CLI is installed.

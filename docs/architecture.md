@@ -33,6 +33,8 @@ Each workspace gets:
 
 The image contains all tool binaries and the repo-managed default presets. The container itself stays lightweight and detached with a long-running idle process so later invocations can use `docker exec`.
 
+The image supplies Chrome's shared libraries, Fontconfig, and Liberation fonts for T3's browser. Both launchers use [Playwright's seccomp profile](../docker/README.md), which permits Chrome's sandbox namespace operations. T3 and its browser run as the mapped `sandbox` user.
+
 Runtime filesystem layout:
 
 - `/workspace`: trusted parent directory inside the container
