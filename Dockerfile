@@ -70,6 +70,7 @@ COPY configs/ /opt/ai-sandbox/defaults/configs/
 COPY docker/bootstrap/ /opt/ai-sandbox/bootstrap/
 COPY docker/entrypoint.sh /opt/ai-sandbox/entrypoint.sh
 COPY docker/claude-wrapper.sh /opt/ai-sandbox/claude-wrapper.sh
+COPY docker/t3-startup.py /opt/ai-sandbox/t3-startup.py
 COPY tests/smoke/image-smoke-check.sh /opt/ai-sandbox/image-smoke-check.sh
 
 RUN chmod +x /opt/ai-sandbox/entrypoint.sh /opt/ai-sandbox/claude-wrapper.sh /opt/ai-sandbox/bootstrap/*.sh /opt/ai-sandbox/image-smoke-check.sh

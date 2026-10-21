@@ -44,6 +44,14 @@ To verify the installed version, run `/opt/ai-sandbox/bin/t3 --version` inside t
 - Run `codex app-server --help` inside the sandbox to confirm the CLI supports the app-server mode.
 - Rebuild with `ai-sandbox --update` if the image was built against an older CLI release.
 
+## T3 startup records after a container restart
+
+Before starting T3, the sandbox checks `/state/data/t3/userdata/server-runtime.json`. A stale record can refer to a missing process, an exited process awaiting cleanup, or a PID reused by a process that started after the recorded server.
+
+Automatic recovery supports the ownership protocol in stable T3 `0.1.x`. Recovery requires a free T3 ownership lock, an unused local server port, and an unchanged runtime record. It removes only `server-runtime.json`. T3 recreates that file on startup. Sessions, authentication, settings, databases, and the ownership lock are preserved.
+
+If a server owns the state or verification is uncertain, startup stops with `T3 startup record preserved` and the reason. Examples include unreadable process details, a busy port, a changed record, and an unsupported T3 version. Check the reported process or listener before retrying. Rebuilding preserves the data volume, including the runtime record.
+
 ## Claude Code is unavailable or logged out
 
 - Run `claude --version` or `ai-sandbox doctor` to verify the CLI is installed.
