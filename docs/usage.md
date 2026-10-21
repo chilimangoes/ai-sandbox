@@ -67,7 +67,7 @@ Install:
 Notes:
 
 - The launcher passes `LOCAL_UID` and `LOCAL_GID` into the container.
-- Shell and most tool commands run as root inside the sandbox, so files created in `/workspace/<project-folder-slug>` may be owned by root on Linux hosts. Claude Code runs as the mapped `sandbox` UID because Claude blocks `--dangerously-skip-permissions` as root.
+- Shell and most tool commands run as root inside the sandbox, so files created in `/workspace/<project-folder-slug>` may be owned by root on Linux hosts. T3 and Claude Code run as the mapped `sandbox` UID.
 
 ## T3 access
 
