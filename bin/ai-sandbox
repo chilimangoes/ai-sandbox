@@ -5,13 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 IMAGE_TAG="ai-sandbox:latest"
 DEFAULT_T3_CONTAINER_PORT=3773
-DEFAULT_CODENOMAD_CONTAINER_PORT=9899
-DEFAULT_PASEO_CONTAINER_PORT=6767
 DEFAULT_ALT_HTTP_CONTAINER_PORT=8080
 DEFAULT_APP_CONTAINER_PORT=3000
 
 usage() {
-  echo "Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]"
+  echo "Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|doctor|stop|rm|reset-config|reset-state]"
 }
 
 assert_docker() {
@@ -236,10 +234,6 @@ ensure_container() {
     running_supplemental_signature="$(container_supplemental_signature "$CONTAINER_NAME")"
     local current_t3_host_port
     current_t3_host_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
-    local current_codenomad_port
-    current_codenomad_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_CODENOMAD_CONTAINER_PORT")"
-    local current_paseo_port
-    current_paseo_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_PASEO_CONTAINER_PORT")"
     local current_alt_http_port
     current_alt_http_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_ALT_HTTP_CONTAINER_PORT")"
     local current_app_port
@@ -251,12 +245,6 @@ ensure_container() {
       recreate_needed="true"
     fi
     if [[ -n "$current_t3_host_port" && "$current_t3_host_port" != "$DEFAULT_T3_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_codenomad_port" && "$current_codenomad_port" != "$DEFAULT_CODENOMAD_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_paseo_port" && "$current_paseo_port" != "$DEFAULT_PASEO_CONTAINER_PORT" ]]; then
       recreate_needed="true"
     fi
     if [[ -n "$current_alt_http_port" && "$current_alt_http_port" != "$DEFAULT_ALT_HTTP_CONTAINER_PORT" ]]; then
@@ -284,19 +272,11 @@ ensure_container() {
       --label "ai-sandbox.supplemental-folders=${SUPPLEMENTAL_SIGNATURE}" \
       --security-opt "seccomp=${REPO_ROOT}/docker/browser-seccomp.json" \
       -p "${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}:${DEFAULT_T3_CONTAINER_PORT}" \
-      -p "${HOST_ADDRESS}:${DEFAULT_CODENOMAD_CONTAINER_PORT}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -p "${HOST_ADDRESS}:${DEFAULT_PASEO_CONTAINER_PORT}:${DEFAULT_PASEO_CONTAINER_PORT}" \
       -p "${HOST_ADDRESS}:${DEFAULT_ALT_HTTP_CONTAINER_PORT}:${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
       -p "${HOST_ADDRESS}:${DEFAULT_APP_CONTAINER_PORT}:${DEFAULT_APP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_T3_URL=http://${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_CODENOMAD_URL=http://${HOST_ADDRESS}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_HOST_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_PASEO_ADDRESS=${HOST_ADDRESS}:${DEFAULT_PASEO_CONTAINER_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_URL=http://${HOST_ADDRESS}:${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
@@ -327,12 +307,6 @@ exec_in_container() {
       -e "AI_SANDBOX_T3_URL=http://${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_CODENOMAD_URL=http://${HOST_ADDRESS}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_PASEO_ADDRESS=${HOST_ADDRESS}:${DEFAULT_PASEO_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_HOST_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_URL=http://${HOST_ADDRESS}:${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
@@ -347,12 +321,6 @@ exec_in_container() {
       -e "AI_SANDBOX_T3_URL=http://${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_CODENOMAD_URL=http://${HOST_ADDRESS}:${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_HOST_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_CODENOMAD_PORT=${DEFAULT_CODENOMAD_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_PASEO_ADDRESS=${HOST_ADDRESS}:${DEFAULT_PASEO_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_HOST_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
-      -e "AI_SANDBOX_PASEO_PORT=${DEFAULT_PASEO_CONTAINER_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_URL=http://${HOST_ADDRESS}:${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
       -e "AI_SANDBOX_ALT_HTTP_PORT=${DEFAULT_ALT_HTTP_CONTAINER_PORT}" \
@@ -460,7 +428,7 @@ case "$COMMAND" in
   doctor)
     exec_in_container false doctor
     ;;
-  t3|codenomad|paseo)
+  t3)
     exec_in_container false "$COMMAND" "${COMMAND_ARGS[@]}"
     ;;
   shell)

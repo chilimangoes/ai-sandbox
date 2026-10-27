@@ -24,7 +24,7 @@ To verify the installed version, run `/opt/ai-sandbox/bin/t3 --version` inside t
 
 ## Published service address is unavailable
 
-- Each workspace publishes T3, CodeNomad, Paseo, and web app ports `8080` and `3000` on one workspace-specific `127.x.y.z` address with matching host/container ports.
+- Each workspace publishes T3 and web app ports `8080` and `3000` on one workspace-specific `127.x.y.z` address with matching host/container ports.
 - If Docker reports a bind conflict, stop or remove the process/container already using that exact workspace address and port.
 - `ai-sandbox --rebuild` recreates the current workspace container with the current fixed service mappings.
 
@@ -71,28 +71,3 @@ T3 runs as `sandbox`. The `t3 browser setup` command checks the account running 
 - Run `cursor status`, then `cursor login` if authentication is required.
 - Rebuild with `ai-sandbox --update` to install the latest Cursor CLI release.
 - If state was intentionally cleared with `reset-state`, authenticate again.
-
-## CodeNomad does not start
-
-- Verify the image has been rebuilt after adding CodeNomad support.
-- Run `ai-sandbox doctor` and confirm `codenomad` and `opencode` both report versions inside the sandbox.
-- Verify `opencode` is authenticated inside the sandbox before expecting CodeNomad to open working sessions.
-- If a future CodeNomad release changes its auth bootstrap requirements, revisit the launcher flags around `--dangerously-skip-auth` for loopback-only sandbox use.
-
-## Paseo does not start
-
-- Verify the image has been rebuilt after adding Paseo support.
-- Run `ai-sandbox doctor` and confirm `paseo` reports a version inside the sandbox.
-- Verify the provider CLIs that Paseo should manage, such as `codex` and `opencode`, are installed and authenticated inside the sandbox.
-- If direct local connectivity fails, verify the daemon address and the `daemon.allowedHosts` configuration under `PASEO_HOME/config.json`.
-- If Paseo reports another daemon already running after an interrupted session, rerun `ai-sandbox paseo`; the launcher now stops leftover daemon state and removes stale PID files before starting.
-
-## Paseo relay is unavailable
-
-- This is expected by default: `ai-sandbox paseo` passes `--no-relay` unless the shared sandbox config opts in.
-- To enable relay pairing, edit `/state/config/shared/sandbox.config` inside the sandbox and set `paseo_relay=1`, then restart `ai-sandbox paseo`.
-- Run `ai-sandbox reset-config` to restore the default `paseo_relay=0`.
-
-## Paseo local speech model warnings
-
-- The initial warnings about missing local STT/TTS models are expected before the first successful model download.

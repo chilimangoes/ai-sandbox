@@ -10,14 +10,12 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptRoot
 $ImageTag = "ai-sandbox:latest"
 $DefaultT3ContainerPort = 3773
-$DefaultCodeNomadContainerPort = 9899
-$DefaultPaseoContainerPort = 6767
 $DefaultAltHttpContainerPort = 8080
 $DefaultAppContainerPort = 3000
 
 function Write-Usage {
     @"
-Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|codenomad|paseo|doctor|stop|rm|reset-config|reset-state]
+Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|doctor|stop|rm|reset-config|reset-state]
 "@
 }
 
@@ -208,19 +206,11 @@ function Start-Container {
         "--label", "ai-sandbox.supplemental-folders=$($SupplementalFolders.Signature)",
         "--security-opt", "seccomp=$(Join-Path $RepoRoot 'docker/browser-seccomp.json')",
         "-p", "$($Meta.HostAddress):${DefaultT3ContainerPort}:${DefaultT3ContainerPort}",
-        "-p", "$($Meta.HostAddress):${DefaultCodeNomadContainerPort}:${DefaultCodeNomadContainerPort}",
-        "-p", "$($Meta.HostAddress):${DefaultPaseoContainerPort}:${DefaultPaseoContainerPort}",
         "-p", "$($Meta.HostAddress):${DefaultAltHttpContainerPort}:${DefaultAltHttpContainerPort}",
         "-p", "$($Meta.HostAddress):${DefaultAppContainerPort}:${DefaultAppContainerPort}",
         "-e", "AI_SANDBOX_T3_PORT=$DefaultT3ContainerPort",
         "-e", "AI_SANDBOX_HOST_T3_PORT=$DefaultT3ContainerPort",
         "-e", "AI_SANDBOX_T3_URL=http://$($Meta.HostAddress):$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_HOST_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_URL=http://$($Meta.HostAddress):$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_PASEO_PORT=$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_HOST_PASEO_PORT=$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_PASEO_ADDRESS=$($Meta.HostAddress):$DefaultPaseoContainerPort",
         "-e", "AI_SANDBOX_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
         "-e", "AI_SANDBOX_HOST_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
         "-e", "AI_SANDBOX_ALT_HTTP_URL=http://$($Meta.HostAddress):$DefaultAltHttpContainerPort",
@@ -441,16 +431,12 @@ function Ensure-Container {
         $containerImageId = Get-ContainerImageId -Name $Meta.Container
         $containerSupplementalSignature = Get-ContainerSupplementalFolderSignature -Name $Meta.Container
         $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
-        $existingCodeNomadPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultCodeNomadContainerPort
-        $existingPaseoPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultPaseoContainerPort
         $existingAltHttpPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAltHttpContainerPort
         $existingAppPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAppContainerPort
         if ($ForceRecreate -or
             $containerImageId -ne $currentImageId -or
             $containerSupplementalSignature -ne $SupplementalFolders.Signature -or
             ($existingT3Port -and $existingT3Port -ne $DefaultT3ContainerPort) -or
-            ($existingCodeNomadPort -and $existingCodeNomadPort -ne $DefaultCodeNomadContainerPort) -or
-            ($existingPaseoPort -and $existingPaseoPort -ne $DefaultPaseoContainerPort) -or
             ($existingAltHttpPort -and $existingAltHttpPort -ne $DefaultAltHttpContainerPort) -or
             ($existingAppPort -and $existingAppPort -ne $DefaultAppContainerPort)) {
             Remove-ContainerIfExists -Name $Meta.Container
@@ -490,12 +476,6 @@ function Exec-InContainer {
         "-e", "AI_SANDBOX_T3_URL=http://$($Meta.HostAddress):$DefaultT3ContainerPort",
         "-e", "AI_SANDBOX_HOST_T3_PORT=$DefaultT3ContainerPort",
         "-e", "AI_SANDBOX_T3_PORT=$DefaultT3ContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_URL=http://$($Meta.HostAddress):$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_HOST_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_CODENOMAD_PORT=$DefaultCodeNomadContainerPort",
-        "-e", "AI_SANDBOX_PASEO_ADDRESS=$($Meta.HostAddress):$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_HOST_PASEO_PORT=$DefaultPaseoContainerPort",
-        "-e", "AI_SANDBOX_PASEO_PORT=$DefaultPaseoContainerPort",
         "-e", "AI_SANDBOX_ALT_HTTP_URL=http://$($Meta.HostAddress):$DefaultAltHttpContainerPort",
         "-e", "AI_SANDBOX_HOST_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
         "-e", "AI_SANDBOX_ALT_HTTP_PORT=$DefaultAltHttpContainerPort",
@@ -601,7 +581,7 @@ switch ($command) {
     }
     default {
         $invokeCommand = if ($command -eq "shell") { @("shell") } else { @($command) + $commandArgs }
-        $nonInteractiveCommands = @("t3", "codenomad", "paseo")
+        $nonInteractiveCommands = @("t3")
         Exec-InContainer -Meta $meta -CommandArgs $invokeCommand -Interactive:($command -notin $nonInteractiveCommands)
         break
     }

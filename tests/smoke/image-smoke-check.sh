@@ -8,9 +8,6 @@ set -euo pipefail
 /opt/ai-sandbox/bin/opencode --version
 /opt/ai-sandbox/bin/cursor-agent --version
 /opt/ai-sandbox/bin/cursor --version
-/opt/ai-sandbox/bin/codenomad --version
-/opt/ai-sandbox/bin/paseo --version
-command -v lbzip2
 command -v sudo
 sudo -n true
 node --version

@@ -3,10 +3,8 @@
 ## High-level behavior decisions
 
 - `ai-sandbox` opens an interactive shell by default.
-- Shell mode prints a short banner listing `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor` (`cursor-agent`), `t3`, `codenomad`, and `paseo`, plus the selected host T3, CodeNomad, and Paseo addresses to use after their service commands start.
+- Shell mode lists the available tools and prints the T3 and published web app URLs. Run `ai-sandbox t3` to start the T3 server.
 - `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
-- `ai-sandbox codenomad` runs CodeNomad in the foreground for the current session. Closing the terminal stops it.
-- `ai-sandbox paseo` runs the Paseo daemon in the foreground for the current session. Closing the terminal stops the daemon.
 - Tool auth is created and stored only inside Docker volumes.
 - Image refreshes only happen when the image is missing or the user passes `--update` or `--rebuild`.
 - Docker is the only supported runtime. Podman is intentionally out of scope.
@@ -19,7 +17,7 @@ The host launcher is workspace-centric:
 2. Derive a stable workspace slug, short hash, and workspace-specific loopback address from the absolute path.
 3. Build or refresh the shared image when required.
 4. Start one detached workspace-scoped container.
-5. Execute either `shell`, `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor`, `cursor-agent`, `t3`, `codenomad`, or `paseo` inside that container.
+5. Execute either `shell`, `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor`, `cursor-agent`, or `t3` inside that container.
 
 Each workspace gets:
 
@@ -45,12 +43,6 @@ Runtime filesystem layout:
 - `/state/data/agents`: persisted shared agent metadata exposed as `~/.agents`
 - `/state/cache`: persisted caches
 - `/opt/ai-sandbox/defaults/configs`: image-baked default presets copied from this repo
-
-CodeNomad runs inside the same container as `opencode`, so the browser only crosses the Docker boundary to reach the UI. All OpenCode execution, file access, and auth stay inside the sandbox.
-
-Paseo also runs inside the same container, but it exposes a daemon endpoint rather than a standalone local UI. Clients connect to the daemon while all agent execution, file access, and credentials remain inside the sandbox.
-
-Paseo relay connectivity is disabled by default. The launcher reads `/state/config/shared/sandbox.config`; only `paseo_relay=1` opts into running the daemon without `--no-relay`.
 
 The entrypoint performs idempotent bootstrap on every start:
 
@@ -83,8 +75,6 @@ Primary commands:
 - `ai-sandbox cursor`
 - `ai-sandbox cursor-agent`
 - `ai-sandbox t3`
-- `ai-sandbox codenomad`
-- `ai-sandbox paseo`
 
 Maintenance commands:
 
@@ -112,25 +102,6 @@ Maintenance commands:
 - Shell mode reserves and prints the URL, but only `ai-sandbox t3` starts the T3 server.
 - T3 is configured for Codex-backed usage in v1. Future provider support can add new preset files without changing the launcher contract.
 
-## CodeNomad exposure
-
-- Container port: `9899`
-- Host port: `9899`
-- Host address: the workspace-specific loopback address.
-- The chosen URL is surfaced in shell startup output and when CodeNomad launches.
-- Shell mode reserves and prints the URL, but only `ai-sandbox codenomad` starts the CodeNomad server.
-- The workspace container publishes service ports at creation time because Docker port mappings cannot be added later without recreating the container.
-
-## Paseo exposure
-
-- Container port: `6767`
-- Host port: `6767`
-- Host address: the workspace-specific loopback address.
-- The chosen address is surfaced in shell startup output and when Paseo launches.
-- Shell mode reserves and prints the address, but only `ai-sandbox paseo` starts the Paseo daemon.
-- The workspace container publishes service ports at creation time because Docker port mappings cannot be added later without recreating the container.
-- `ai-sandbox paseo` passes `--no-relay` by default. To enable the relay, set `paseo_relay=1` in `/state/config/shared/sandbox.config` inside the container's persistent config state.
-
 ## Image design
 
 - Base image: Debian Bookworm slim
@@ -147,8 +118,6 @@ The image installs:
 - `@github/copilot`
 - `opencode-ai`
 - Cursor CLI, installed with `curl https://cursor.com/install -fsS | bash` and exposed as `cursor` and `cursor-agent`
-- `@neuralnomads/codenomad`
-- `@getpaseo/cli`
 - `t3`
 
 Claude Code uses the standard command shim plus `/opt/ai-sandbox/claude-wrapper.sh`. Its editable `~/.claude/settings.json` is seeded from the repo defaults and linked to `/state/config/claude/settings.json`, while the rest of `~/.claude/` persists under `/state/data/claude/home`. The wrapper synchronizes Claude-managed `~/.claude.json` with `/state/data/claude/claude.json` around each invocation because Claude may replace that file atomically; on a fresh sandbox, that state file remains absent until Claude creates valid JSON.

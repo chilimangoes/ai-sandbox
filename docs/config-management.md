@@ -143,26 +143,6 @@ Cursor:
 - `~/.config/cursor/` is linked to the authentication directory
 - the preset uses `approvalMode: unrestricted` and `autoAcceptWebSearch: true` for the sandbox's out-of-the-box YOLO behavior
 
-
-CodeNomad:
-
-- default config: `/state/config/codenomad/config.json`
-- runtime data: `/state/data/codenomad/instances`
-- TLS material: `/state/data/codenomad/tls`
-- `~/.config/codenomad/` is wired into `/state` so CodeNomad server state survives container recreation
-
-Shared sandbox config:
-
-- default config: `/state/config/shared/sandbox.config`
-- `paseo_relay=0` is the default and makes `ai-sandbox paseo` pass `--no-relay`; set `paseo_relay=1` to opt into Paseo's public relay; any other value keeps relay disabled
-
-Paseo:
-
-- default config: `/state/config/paseo/config.json`
-- runtime home: `/state/data/paseo`
-- `PASEO_HOME=/state/data/paseo`
-- `config.json` inside `PASEO_HOME` is symlinked back to `/state/config/paseo/config.json` so `reset-config` can restore defaults without wiping runtime state
-
 T3:
 
 - default config: `/state/config/t3/config.json`

@@ -16,7 +16,6 @@ RUN apt-get update \
         git \
         jq \
         less \
-        lbzip2 \
         libasound2 \
         libatk-bridge2.0-0 \
         libatk1.0-0 \
@@ -49,7 +48,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot opencode-ai t3@latest @neuralnomads/codenomad @getpaseo/cli \
+RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot opencode-ai t3@latest \
     && curl -fsSL https://antigravity.google/cli/install.sh | bash \
     && ln -sf /root/.local/bin/agy /usr/local/bin/agy \
     && command -v agy >/dev/null \
@@ -58,7 +57,7 @@ RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot openc
     && ln -sf /root/.local/bin/cursor-agent /usr/local/bin/cursor \
     && command -v cursor-agent >/dev/null \
     && mkdir -p "$AI_SANDBOX_REAL_BIN_DIR" \
-    && for command in codex claude agy copilot opencode cursor-agent cursor t3 codenomad paseo; do \
+    && for command in codex claude agy copilot opencode cursor-agent cursor t3; do \
         shim_path="$(command -v "$command")"; \
         real_path="$(readlink -f "$shim_path")"; \
         if [ "$real_path" = "$shim_path" ]; then \

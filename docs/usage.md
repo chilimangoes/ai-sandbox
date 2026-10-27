@@ -14,8 +14,6 @@ From a workspace directory:
 - `ai-sandbox cursor`: run Cursor CLI in the sandbox
 - `ai-sandbox cursor-agent`: run Cursor CLI using its upstream command name
 - `ai-sandbox t3`: start T3 in the sandbox for the current terminal session
-- `ai-sandbox codenomad`: start CodeNomad in the sandbox for the current terminal session
-- `ai-sandbox paseo`: start the Paseo daemon in the sandbox for the current terminal session
 - `ai-sandbox --add-folder <path>`: add a supplemental host folder mapping under `/supplemental`
 
 Maintenance:
@@ -76,23 +74,6 @@ Notes:
 - The shell banner prints the chosen URL for the current workspace sandbox.
 - Open the exact printed URL. Do not rewrite it to `localhost` or `127.0.0.1` when running multiple T3 sandboxes at once, because T3 browser cookies are scoped by host.
 - The URL is not live in plain shell mode; run `ai-sandbox t3` or `t3` inside the sandbox shell before opening it in a browser.
-
-## CodeNomad access
-
-- Host URL: `http://<workspace-127.x.y.z>:9899`
-- The shell banner prints the chosen URL for the current workspace sandbox.
-- The URL is not live in plain shell mode; run `ai-sandbox codenomad` or `codenomad` inside the sandbox shell before opening it in a browser.
-- CodeNomad runs inside the sandbox and uses the sandbox's `opencode` binary, config, auth, and workspace files.
-
-## Paseo access
-
-- Host daemon address: `<workspace-127.x.y.z>:6767`
-- The shell banner prints the chosen address for the current workspace sandbox.
-- Run `ai-sandbox paseo` or `paseo` inside the sandbox shell to start the daemon in the foreground.
-- Use the Paseo CLI, app, or other clients to connect to that daemon.
-- Paseo runs inside the sandbox and orchestrates the sandbox's installed coding CLIs.
-- The sandbox starts Paseo with `--no-relay` by default so daemon traffic stays local to the host/container boundary.
-- To opt into Paseo's public relay, edit `/state/config/shared/sandbox.config` inside the sandbox and set `paseo_relay=1`; any other value keeps `--no-relay` enabled.
 
 ## Published web ports
 

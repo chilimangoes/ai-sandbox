@@ -22,14 +22,12 @@ if ($psLauncher -match 'function Get-FreePort' -or $psLauncher -match 'Get-FreeP
     throw "Expected bin/ai-sandbox.ps1 to use fixed service ports without probing for alternates."
 }
 
-if ($psLauncher -match '--t3-port|--codenomad-port|--paseo-port') {
+if ($psLauncher -match '--t3-port') {
     throw "Expected bin/ai-sandbox.ps1 to remove per-service port override flags."
 }
 
 foreach ($expected in @(
     '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultT3ContainerPort\}:\$\{DefaultT3ContainerPort\}"',
-    '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultCodeNomadContainerPort\}:\$\{DefaultCodeNomadContainerPort\}"',
-    '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultPaseoContainerPort\}:\$\{DefaultPaseoContainerPort\}"',
     '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultAltHttpContainerPort\}:\$\{DefaultAltHttpContainerPort\}"',
     '-p", "\$\(\$Meta\.HostAddress\):\$\{DefaultAppContainerPort\}:\$\{DefaultAppContainerPort\}"'
 )) {
@@ -60,14 +58,12 @@ if ($bashLauncher -match 'free_port\(' -or $bashLauncher -match 'free_port "') {
     throw "Expected bin/ai-sandbox to use fixed service ports without probing for alternates."
 }
 
-if ($bashLauncher -match '--t3-port|--codenomad-port|--paseo-port') {
+if ($bashLauncher -match '--t3-port') {
     throw "Expected bin/ai-sandbox to remove per-service port override flags."
 }
 
 foreach ($expected in @(
     '-p "\$\{HOST_ADDRESS\}:\$\{DEFAULT_T3_CONTAINER_PORT\}:\$\{DEFAULT_T3_CONTAINER_PORT\}"',
-    '-p "\$\{HOST_ADDRESS\}:\$\{DEFAULT_CODENOMAD_CONTAINER_PORT\}:\$\{DEFAULT_CODENOMAD_CONTAINER_PORT\}"',
-    '-p "\$\{HOST_ADDRESS\}:\$\{DEFAULT_PASEO_CONTAINER_PORT\}:\$\{DEFAULT_PASEO_CONTAINER_PORT\}"',
     '-p "\$\{HOST_ADDRESS\}:\$\{DEFAULT_ALT_HTTP_CONTAINER_PORT\}:\$\{DEFAULT_ALT_HTTP_CONTAINER_PORT\}"',
     '-p "\$\{HOST_ADDRESS\}:\$\{DEFAULT_APP_CONTAINER_PORT\}:\$\{DEFAULT_APP_CONTAINER_PORT\}"'
 )) {
