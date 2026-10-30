@@ -8,6 +8,7 @@ set -euo pipefail
 /opt/ai-sandbox/bin/opencode --version
 /opt/ai-sandbox/bin/cursor-agent --version
 /opt/ai-sandbox/bin/cursor --version
+gh --version
 command -v sudo
 sudo -n true
 node --version

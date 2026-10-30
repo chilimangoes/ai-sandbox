@@ -162,6 +162,7 @@ run_doctor() {
   echo "copilot: $(copilot --version 2>/dev/null || echo unavailable)"
   echo "opencode: $(opencode --version 2>/dev/null || echo unavailable)"
   echo "cursor: $(cursor --version 2>/dev/null || echo unavailable)"
+  echo "gh: $(gh --version 2>/dev/null || echo unavailable)"
   echo "node: $(node --version 2>/dev/null || echo unavailable)"
   echo "npm: $(npm --version 2>/dev/null || echo unavailable)"
   echo "t3: $(t3 --help >/dev/null 2>&1 && echo available || echo unavailable)"

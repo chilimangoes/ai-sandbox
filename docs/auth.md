@@ -1,6 +1,13 @@
 # Auth
 
-All auth for v1 happens inside the sandbox and persists only in Docker volumes. The launcher never imports host credentials.
+All auth happens inside the sandbox and persists in Docker volumes. The launcher never imports host credentials.
+
+## GitHub CLI
+
+- Authenticate inside the sandbox with `gh auth login`.
+- Check authentication with `gh auth status`.
+- `GH_CONFIG_DIR` points to `/state/data/github-cli` in the workspace's data volume, where GitHub CLI stores configuration and credentials.
+- Credentials survive container recreation, `--rebuild`, and `reset-config`. `reset-state` deletes them.
 
 ## Codex
 

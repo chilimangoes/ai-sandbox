@@ -19,6 +19,7 @@
 - Claude Code CLI
 - Antigravity CLI
 - GitHub Copilot CLI
+- GitHub CLI (`gh`)
 - OpenCode
 - T3 Code
 

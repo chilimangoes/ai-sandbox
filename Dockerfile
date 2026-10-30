@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV AI_SANDBOX_DEFAULT_T3_PORT=3773
 ENV AI_SANDBOX_REAL_BIN_DIR=/opt/ai-sandbox/bin
+ENV GH_CONFIG_DIR=/state/data/github-cli
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -13,6 +14,7 @@ RUN apt-get update \
         fontconfig \
         fonts-liberation \
         g++ \
+        gh \
         git \
         jq \
         less \

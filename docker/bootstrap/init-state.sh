@@ -28,6 +28,7 @@ mkdir -p \
   /state/data/copilot \
   /state/data/opencode \
   /state/data/cursor \
+  /state/data/github-cli \
   /state/data/t3 \
   /state/cache/npm \
   /state/cache/opencode

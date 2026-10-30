@@ -41,6 +41,7 @@ Runtime filesystem layout:
 - `/state/auth`: persisted auth material
 - `/state/data`: persisted tool state and session data
 - `/state/data/agents`: persisted shared agent metadata exposed as `~/.agents`
+- `/state/data/github-cli`: GitHub CLI configuration and credentials, selected by `GH_CONFIG_DIR`
 - `/state/cache`: persisted caches
 - `/opt/ai-sandbox/defaults/configs`: image-baked default presets copied from this repo
 
@@ -106,7 +107,7 @@ Maintenance commands:
 
 - Base image: Debian Bookworm slim
 - Runtime: Node.js 22
-- Common packages: `bash`, `curl`, `git`, `jq`, `less`, `procps`, `ripgrep`, `sudo`, `unzip`, `ca-certificates`
+- Common packages: `bash`, `curl`, `gh`, `git`, `jq`, `less`, `procps`, `ripgrep`, `sudo`, `unzip`, `ca-certificates`
 - Runtime user: root for shell and most tool commands; T3 and Claude Code run as the mapped `sandbox` user. All use `HOME=/home/sandbox` for persisted auth/config paths.
 - Command shims: the installed tool commands in the shell route back through `/opt/ai-sandbox/entrypoint.sh`, while the entrypoint calls the real binaries from `/opt/ai-sandbox/bin`
 
