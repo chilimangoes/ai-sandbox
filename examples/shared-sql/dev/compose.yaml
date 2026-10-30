@@ -1,0 +1,37 @@
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-CU22-GDR1-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: "2048"
+    env_file: ${TEST_SQL_STATE_DIR:?Run the project bootstrap}/server.env
+    mem_limit: 3g
+    networks:
+      test:
+        aliases: [test-sql]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - SQLCMDPASSWORD="$$MSSQL_SA_PASSWORD" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' -o /dev/null
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 10s
+  init:
+    image: mcr.microsoft.com/mssql/server:2022-CU22-GDR1-ubuntu-22.04
+    env_file: ${TEST_SQL_STATE_DIR:?Run the project bootstrap}/server.env
+    volumes:
+      - ./init.sql:/tmp/init.sql:ro
+    networks: [test]
+    entrypoint: [/bin/bash, -euc]
+    command:
+      - |
+        export SQLCMDPASSWORD="$$MSSQL_SA_PASSWORD"
+        /opt/mssql-tools18/bin/sqlcmd -S test-sql -U sa -C -b -i /tmp/init.sql -v TestPassword="$$TEST_SQL_PASSWORD"
+        export SQLCMDPASSWORD="$$TEST_SQL_PASSWORD"
+        /opt/mssql-tools18/bin/sqlcmd -S test-sql -U sandbox_test -C -b -Q 'SELECT 1' -o /dev/null
+networks:
+  test:
+    external: true
+    name: ${TEST_SQL_GROUP:?Run the project bootstrap}

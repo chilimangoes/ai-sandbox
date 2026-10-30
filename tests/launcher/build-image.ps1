@@ -4,6 +4,7 @@ param()
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $source = Get-Content (Join-Path $repoRoot "bin/ai-sandbox.ps1") -Raw
+$workspaceSource = Get-Content (Join-Path $repoRoot 'scripts/workspace-settings.ps1') -Raw
 $match = [regex]::Match($source, '(?ms)^function Build-Image \{.*?^\}')
 if (-not $match.Success) { throw "Build-Image function missing" }
 Invoke-Expression $match.Value
@@ -22,7 +23,7 @@ Build-Image -Pull -Refresh
 foreach ($expected in @("--pull", "--no-cache", $ImageTag, $RepoRoot)) {
     if ($script:dockerArgs -notcontains $expected) { throw "Missing build argument: $expected" }
 }
-if ($source -notmatch 'Build-Image -Pull -Refresh:\(\$update -or \$rebuild\)') {
+if ($workspaceSource -notmatch 'Build-Image -Pull -Refresh:\(\$update -or \$rebuild\)') {
     throw "Both explicit update modes must request fresh packages"
 }
 

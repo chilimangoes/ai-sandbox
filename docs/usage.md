@@ -56,6 +56,7 @@ Requirements:
 - Docker Engine
 - `bash`
 - `sha256sum`
+- `flock` (from `util-linux`)
 
 Install:
 

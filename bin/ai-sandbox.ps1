@@ -15,7 +15,7 @@ $DefaultAppContainerPort = 3000
 
 function Write-Usage {
     @"
-Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|doctor|stop|rm|reset-config|reset-state]
+Usage: ai-sandbox [--update] [--rebuild] [--add-folder <path> [--as <name>] [--global|--local] [--read-only|--read-write] [--yes]] [shell|codex|claude|agy|copilot|opencode|cursor|cursor-agent|t3|doctor|stop|rm|reset-config|reset-state|trust|untrust]
 "@
 }
 
@@ -194,7 +194,8 @@ function Get-SupplementalFolderMounts {
 function Start-Container {
     param(
         [pscustomobject]$Meta,
-        [pscustomobject]$SupplementalFolders
+        [pscustomobject]$SupplementalFolders,
+        [pscustomobject]$WorkspaceSettings
     )
 
     $dockerArgs = @(
@@ -204,6 +205,7 @@ function Start-Container {
         "--label", "ai-sandbox.workspace=$($Meta.Workspace)",
         "--label", "ai-sandbox.hash=$($Meta.Hash)",
         "--label", "ai-sandbox.supplemental-folders=$($SupplementalFolders.Signature)",
+        "--label", "ai-sandbox.workspace-settings=$($workspaceSettings.Signature)",
         "--security-opt", "seccomp=$(Join-Path $RepoRoot 'docker/browser-seccomp.json')",
         "-p", "$($Meta.HostAddress):${DefaultT3ContainerPort}:${DefaultT3ContainerPort}",
         "-p", "$($Meta.HostAddress):${DefaultAltHttpContainerPort}:${DefaultAltHttpContainerPort}",
@@ -230,6 +232,7 @@ function Start-Container {
     foreach ($mount in $SupplementalFolders.Mounts) {
         $dockerArgs += @("-v", "$($mount.HostPath):/supplemental/$($mount.Name):$($mount.Mode)")
     }
+    $dockerArgs += @($workspaceSettings.RunArgs)
 
     $dockerArgs += @(
         $ImageTag,
@@ -419,6 +422,7 @@ function Ensure-Container {
     param(
         [pscustomobject]$Meta,
         [pscustomobject]$SupplementalFolders,
+        [pscustomobject]$WorkspaceSettings,
         [switch]$ForceRecreate
     )
 
@@ -430,15 +434,18 @@ function Ensure-Container {
     if (Test-ContainerExists -Name $Meta.Container) {
         $containerImageId = Get-ContainerImageId -Name $Meta.Container
         $containerSupplementalSignature = Get-ContainerSupplementalFolderSignature -Name $Meta.Container
+        $containerSettingsSignature = Get-ContainerWorkspaceSettingsSignature -Name $Meta.Container
         $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
         $existingAltHttpPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAltHttpContainerPort
         $existingAppPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAppContainerPort
         if ($ForceRecreate -or
             $containerImageId -ne $currentImageId -or
             $containerSupplementalSignature -ne $SupplementalFolders.Signature -or
+            $containerSettingsSignature -cne $workspaceSettings.Signature -or
             ($existingT3Port -and $existingT3Port -ne $DefaultT3ContainerPort) -or
             ($existingAltHttpPort -and $existingAltHttpPort -ne $DefaultAltHttpContainerPort) -or
             ($existingAppPort -and $existingAppPort -ne $DefaultAppContainerPort)) {
+            Write-Host 'Replacing the workspace container to apply image or launch settings. Active sessions will stop; persisted volumes are preserved.'
             Remove-ContainerIfExists -Name $Meta.Container
         }
     }
@@ -449,7 +456,7 @@ function Ensure-Container {
     Ensure-Volume -Name $Meta.CacheVolume
 
     if (-not (Test-ContainerExists -Name $Meta.Container)) {
-        Start-Container -Meta $Meta -SupplementalFolders $SupplementalFolders
+        Start-Container -Meta $Meta -SupplementalFolders $SupplementalFolders -WorkspaceSettings $WorkspaceSettings
     } elseif (-not (Test-ContainerRunning -Name $Meta.Container)) {
         docker start $Meta.Container | Out-Null
         if ($LASTEXITCODE -ne 0) {
@@ -489,6 +496,8 @@ function Exec-InContainer {
     $dockerArgs += $CommandArgs
     & docker @dockerArgs
 }
+
+. (Join-Path $RepoRoot 'scripts/workspace-settings.ps1')
 
 $update = $false
 $rebuild = $false
@@ -534,37 +543,46 @@ $commandArgs = if ($positionals.Count -gt 1) { $positionals[1..($positionals.Cou
 
 Assert-Docker
 $meta = Get-WorkspaceMeta -WorkspacePath (Get-Location).Path
-$supplementalFolders = Get-SupplementalFolderMounts -WorkspacePath $meta.Workspace
 
-if (-not (Get-ImageId -Tag $ImageTag) -or $update -or $rebuild) {
-    Build-Image -Pull -Refresh:($update -or $rebuild)
-}
-
-switch ($command) {
-    "stop" {
-        if (Test-ContainerExists -Name $meta.Container) {
-            docker stop $meta.Container | Out-Null
+$workspaceLock = Enter-LauncherLock -Name "workspace-$($meta.Hash)"
+try {
+    switch ($command) {
+        'trust' {
+            Set-WorkspaceTrust -Meta $meta
+            exit 0
         }
-        exit 0
-    }
-    "rm" {
-        Remove-ContainerIfExists -Name $meta.Container
-        exit 0
-    }
-    "reset-state" {
-        Remove-ContainerIfExists -Name $meta.Container
-        foreach ($volume in @($meta.ConfigVolume, $meta.AuthVolume, $meta.DataVolume, $meta.CacheVolume)) {
-            docker volume rm $volume | Out-Null 2>$null
+        'untrust' {
+            $path = Get-WorkspaceTrustPath -Meta $meta
+            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
+            Write-Host "Revoked sandbox workspace trust for $($meta.Workspace)."
+            exit 0
         }
-        exit 0
+        "stop" {
+            if (Test-ContainerExists -Name $meta.Container) {
+                docker stop $meta.Container | Out-Null
+            }
+            exit 0
+        }
+        "rm" {
+            Remove-ContainerIfExists -Name $meta.Container
+            exit 0
+        }
+        "reset-state" {
+            Remove-ContainerIfExists -Name $meta.Container
+            foreach ($volume in @($meta.ConfigVolume, $meta.AuthVolume, $meta.DataVolume, $meta.CacheVolume)) {
+                docker volume rm $volume | Out-Null 2>$null
+            }
+            exit 0
+        }
     }
-}
 
-if ($rebuild) {
-    Remove-ContainerIfExists -Name $meta.Container
-}
-
-Ensure-Container -Meta $meta -SupplementalFolders $supplementalFolders -ForceRecreate:$rebuild
+    Assert-WorkspaceTrust -Meta $meta
+    $workspaceSettings = Get-WorkspaceSettings -Meta $meta
+    Assert-WorkspaceNetworks -Settings $workspaceSettings
+    $supplementalFolders = Get-SupplementalFolderMounts -WorkspacePath $meta.Workspace
+    Initialize-WorkspaceImage -Meta $meta -Refresh:($update -or $rebuild)
+    Ensure-Container -Meta $meta -SupplementalFolders $supplementalFolders -WorkspaceSettings $workspaceSettings -ForceRecreate:$rebuild
+} finally { $workspaceLock.Dispose() }
 
 foreach ($warning in $supplementalFolders.Warnings) {
     Write-Warning $warning

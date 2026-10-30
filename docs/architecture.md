@@ -6,7 +6,7 @@
 - Shell mode lists the available tools and prints the T3 and published web app URLs. Run `ai-sandbox t3` to start the T3 server.
 - `ai-sandbox t3` runs T3 in the foreground for the current session. Closing the terminal stops it.
 - Tool auth is created and stored only inside Docker volumes.
-- Image refreshes only happen when the image is missing or the user passes `--update` or `--rebuild`.
+- Shared base image refreshes happen when the image is missing or the user passes `--update` or `--rebuild`.
 - Docker is the only supported runtime. Podman is intentionally out of scope.
 
 ## Host model

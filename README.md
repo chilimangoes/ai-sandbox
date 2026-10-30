@@ -8,10 +8,10 @@
 - shell startup lists the available tools and prints the T3 and published web app URLs
 - `ai-sandbox t3` starts T3 for the current terminal session; ending the session stops T3
 - each sandbox container publishes T3 and web app ports on one workspace-specific `127.x.y.z` host address with matching host/container ports
-- web app ports currently exposed are 8080 and 3000
+- default web app ports are 8080 and 3000
 - optional supplemental host folders can be mounted read-only or read-write under `/supplemental`
 - auth persists only inside Docker volumes owned by the sandbox
-- updates happen only through explicit `--update` or `--rebuild`
+- shared base image updates happen through explicit `--update` or `--rebuild`
 
 ## Included tools
 
@@ -41,4 +41,6 @@ Further details live in:
 - [docs/architecture.md](docs/architecture.md)
 - [docs/auth.md](docs/auth.md)
 - [docs/config-management.md](docs/config-management.md)
+- [Custom workspace images](docs/custom-images.md)
+- [Workspaces with shared services](docs/workspace-services.md)
 - [docs/troubleshooting.md](docs/troubleshooting.md)
