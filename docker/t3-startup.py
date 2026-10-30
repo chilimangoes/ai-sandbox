@@ -136,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--launcher", type=Path, default=Path("/opt/ai-sandbox/bin/t3"))
     arguments = parser.parse_args()
     try:
-        recover(arguments.base_dir, arguments.launcher)
+        recover(arguments.base_dir.expanduser(), arguments.launcher)
     except RecoveryBlocked as error:
         print(f"T3 startup record preserved: {error}. Startup stopped.", file=sys.stderr)
         sys.exit(1)

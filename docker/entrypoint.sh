@@ -121,25 +121,7 @@ run_cursor_as_root() {
 }
 
 rewrite_t3_output() {
-  while IFS= read -r line; do
-    case "$line" in
-      "Connection string: "*)
-        echo "Connection string: $AI_SANDBOX_T3_URL"
-        ;;
-      "Pairing URL: "*"#token="*)
-        token="${line##*#token=}"
-        echo "Pairing URL: $AI_SANDBOX_T3_URL/pair#token=$token"
-        ;;
-      *"pairingUrl: "*"#token="*)
-        token="${line##*#token=}"
-        prefix="${line%%pairingUrl: *}"
-        echo "${prefix}pairingUrl: $AI_SANDBOX_T3_URL/pair#token=$token"
-        ;;
-      *)
-        echo "$line"
-        ;;
-    esac
-  done
+  python3 /opt/ai-sandbox/t3-output.py "$AI_SANDBOX_T3_URL"
 }
 
 print_banner() {
@@ -169,9 +151,106 @@ run_doctor() {
 }
 
 run_t3() {
-  echo "Starting T3 on $HOST_T3_URL"
-  python3 /opt/ai-sandbox/t3-startup.py --base-dir /state/data/t3
-  run_as_sandbox "$(declare -f rewrite_t3_output); export HOST=0.0.0.0; export PORT='$CONTAINER_T3_PORT'; export T3_CONFIG_PATH=/state/config/t3/config.json; export T3CODE_HOME=/state/data/t3; /opt/ai-sandbox/bin/t3 start --no-browser --host 0.0.0.0 --port '$CONTAINER_T3_PORT' --base-dir /state/data/t3 --auto-bootstrap-project-from-cwd 2>&1 | rewrite_t3_output"
+  local command arg quoted recovery base_dir
+  local server=false rewrite=true help=false headless=false base_url=false options_end=false
+  local -a args=("$@")
+  local -a words=()
+  export T3_CONFIG_PATH="${T3_CONFIG_PATH:-/state/config/t3/config.json}"
+  export T3CODE_HOME="${T3CODE_HOME:-/state/data/t3}"
+  base_dir="$T3CODE_HOME"
+
+  # Inspect options without rebuilding argv, so values keep their exact boundaries.
+  local index
+  for ((index = 0; index < ${#args[@]}; index++)); do
+    arg="${args[index]}"
+    case "$arg" in
+      --) options_end=true; break ;;
+      --help|-h|--version) help=true ;;
+      --headless|--headless=*) headless=true ;;
+      --base-url|--base-url=*) base_url=true ;;
+      --base-dir)
+        if ((index + 1 < ${#args[@]})); then
+          index=$((index + 1))
+          base_dir="${args[index]}"
+        fi
+        ;;
+      --base-dir=*) base_dir="${arg#*=}" ;;
+      --host|--port|--dev-url|--mode|--bootstrap-fd|--tailscale-serve-port)
+        rewrite=false
+        index=$((index + 1))
+        ;;
+      --host=*|--port=*|--dev-url=*|--mode=*|--bootstrap-fd=*|--tailscale*) rewrite=false ;;
+      -*) ;;
+      *) words+=("$arg") ;;
+    esac
+  done
+  command="${words[0]:-start}"
+  [[ "$base_dir" == /state/data/t3 ]] || rewrite=false
+  [[ "$command" == help ]] && help=true
+
+  if [[ "$help" == true ]]; then
+    run_argv_as_sandbox "$REAL_BIN_DIR/t3" "$@"
+    return
+  fi
+
+  case "$command" in
+    start|serve|-*|./*|../*|/*|~*) server=true ;;
+    update|uninstall)
+      echo "T3 is installed in the sandbox image. Use 'ai-sandbox --rebuild' on the host to update it, or change the image to remove it." >&2
+      return 1
+      ;;
+    service)
+      case "${words[1]:-}" in
+        install|restart|uninstall|update)
+          echo "Use 'ai-sandbox t3' on the host to run T3 in this container. Native T3 services require systemd or launchd; manage the container with ai-sandbox." >&2
+          return 1
+          ;;
+      esac
+      ;;
+    connect)
+      if [[ "$headless" == false && "$options_end" == false ]]; then
+        case "${words[1]:-}" in
+          ""|login|link) args+=(--headless) ;;
+        esac
+      fi
+      ;;
+    auth)
+      if [[ "${words[1]:-}" == pairing && "${words[2]:-}" == create && "$base_url" == false && "$rewrite" == true && "$options_end" == false ]]; then
+        args+=(--base-url "$HOST_T3_URL")
+      fi
+      ;;
+    browser)
+      if [[ "${words[1]:-}" == setup && "$(id -u)" == 0 ]]; then
+        run_argv_as_root "$REAL_BIN_DIR/t3" "$@"
+        return
+      fi
+      ;;
+    *) [[ -d "${WORKSPACE_PATH:-.}/$command" ]] && server=true ;;
+  esac
+
+  if [[ "$server" == true ]]; then
+    ((${#args[@]})) || args=(start)
+    export T3CODE_HOST="${T3CODE_HOST:-0.0.0.0}"
+    export T3CODE_PORT="${T3CODE_PORT:-$CONTAINER_T3_PORT}"
+    export T3CODE_NO_BROWSER="${T3CODE_NO_BROWSER:-true}"
+    if [[ "$command" != serve ]]; then
+      export T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD="${T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD:-true}"
+    fi
+    [[ "$T3CODE_HOST" == 0.0.0.0 && "$T3CODE_PORT" == "$CONTAINER_T3_PORT" && -z "${VITE_DEV_SERVER_URL:-}" && "${T3CODE_TAILSCALE_SERVE:-false}" == false && "${T3CODE_MODE:-web}" != desktop ]] || rewrite=false
+    recovery="$(quote_args python3 /opt/ai-sandbox/t3-startup.py --base-dir "$base_dir")"
+    quoted="$(quote_args "$REAL_BIN_DIR/t3" "${args[@]}")"
+    if [[ "$rewrite" == true ]]; then
+      echo "Starting T3 on $HOST_T3_URL"
+      run_as_sandbox "set -euo pipefail; $(declare -f rewrite_t3_output); ${recovery}; ${quoted} 2>&1 | rewrite_t3_output"
+    else
+      run_as_sandbox "set -e; ${recovery}; exec ${quoted}"
+    fi
+  elif [[ "$command" == pair && "$rewrite" == true ]]; then
+    quoted="$(quote_args "$REAL_BIN_DIR/t3" "${args[@]}")"
+    run_as_sandbox "set -o pipefail; $(declare -f rewrite_t3_output); ${quoted} | rewrite_t3_output"
+  else
+    run_argv_as_sandbox "$REAL_BIN_DIR/t3" "${args[@]}"
+  fi
 }
 
 dispatch() {

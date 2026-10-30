@@ -67,6 +67,17 @@ def main():
         assert not any(call[0] == 'build' for call in calls())
         original_volumes = state()['volumes'][:]
 
+        # Tool flags belong to T3, including flags that also name launcher options.
+        for arguments in [('t3', 'auth', 'session', 'list', '--json'),
+                          ('t3', '--help'), ('t3', 'future-command', '--update')]:
+            count = len(calls())
+            launch(*arguments)
+            invoked = calls()[count:]
+            execution = next(call for call in invoked if call[0] == 'exec')
+            assert execution[-len(arguments):] == list(arguments), execution
+            assert '-i' in execution and '-it' not in execution, execution
+            assert not any(call[0] == 'build' for call in invoked)
+
         (config / 'Dockerfile').write_text('ARG AI_SANDBOX_BASE_IMAGE\nFROM ${AI_SANDBOX_BASE_IMAGE}\nCOPY install.sh /tmp/install.sh\n')
         (config / 'install.sh').write_text('echo project dependencies\n')
         assert 'ai-sandbox trust' in launch('doctor', success=False)

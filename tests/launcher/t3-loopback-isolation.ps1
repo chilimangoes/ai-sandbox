@@ -76,22 +76,20 @@ if ($bashLauncher -notmatch 'AI_SANDBOX_T3_URL=http://\$\{HOST_ADDRESS\}:\$\{DEF
     throw "Expected bin/ai-sandbox to pass the workspace-specific T3 URL into containers and docker exec."
 }
 
-if ($entrypoint -notmatch 'export T3CODE_HOME=/state/data/t3;') {
+if ($entrypoint -notmatch 'export T3CODE_HOME="\$\{T3CODE_HOME:-/state/data/t3\}"') {
     throw "Expected docker/entrypoint.sh to persist T3 runtime state via T3CODE_HOME."
 }
 
-if ($entrypoint -notmatch 't3 start --no-browser --host 0\.0\.0\.0 --port .* --base-dir /state/data/t3 --auto-bootstrap-project-from-cwd') {
-    throw "Expected docker/entrypoint.sh to pass --base-dir /state/data/t3 to T3."
+if ($entrypoint -notmatch 'export T3CODE_HOST="\$\{T3CODE_HOST:-0\.0\.0\.0\}"' -or $entrypoint -notmatch 'export T3CODE_PORT=') {
+    throw "Expected docker/entrypoint.sh to supply sandbox defaults through T3's environment settings."
 }
 
 if ($entrypoint -match '--state-dir') {
     throw "docker/entrypoint.sh passes --state-dir, but this T3 CLI exposes --base-dir instead."
 }
 
-if ($entrypoint -notmatch 'Connection string: \$AI_SANDBOX_T3_URL' -or
-    $entrypoint -notmatch 'Pairing URL: \$AI_SANDBOX_T3_URL/pair#token=\$token' -or
-    $entrypoint -notmatch 'pairingUrl: \$AI_SANDBOX_T3_URL/pair#token=\$token') {
-    throw "Expected docker/entrypoint.sh to keep rewriting T3 output with AI_SANDBOX_T3_URL."
+if ($entrypoint -notmatch 'python3 /opt/ai-sandbox/t3-output\.py "\$AI_SANDBOX_T3_URL"') {
+    throw "Expected docker/entrypoint.sh to render connection details with AI_SANDBOX_T3_URL."
 }
 
 Write-Host "t3-loopback-isolation.ps1 passed"

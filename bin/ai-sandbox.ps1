@@ -469,7 +469,8 @@ function Exec-InContainer {
     param(
         [pscustomobject]$Meta,
         [string[]]$CommandArgs,
-        [switch]$Interactive
+        [switch]$Interactive,
+        [switch]$KeepStdin
     )
 
     $dockerArgs = @(
@@ -477,6 +478,7 @@ function Exec-InContainer {
         @("exec", "-it")
     } else {
         @("exec")
+        if ($KeepStdin) { "-i" }
     })
 
     $dockerArgs += @(
@@ -527,7 +529,9 @@ for ($i = 0; $i -lt $ArgsList.Count; $i++) {
             if ($ArgsList[$i].StartsWith("--")) {
                 throw "Unknown option: $($ArgsList[$i])"
             }
-            $positionals.Add($ArgsList[$i])
+            for (; $i -lt $ArgsList.Count; $i++) {
+                $positionals.Add($ArgsList[$i])
+            }
         }
     }
 }
@@ -599,8 +603,14 @@ switch ($command) {
     }
     default {
         $invokeCommand = if ($command -eq "shell") { @("shell") } else { @($command) + $commandArgs }
-        $nonInteractiveCommands = @("t3")
-        Exec-InContainer -Meta $meta -CommandArgs $invokeCommand -Interactive:($command -notin $nonInteractiveCommands)
+        if ($command -eq "t3") {
+            $useTerminal = -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
+            Exec-InContainer -Meta $meta -CommandArgs $invokeCommand -Interactive:$useTerminal -KeepStdin
+        } else {
+            Exec-InContainer -Meta $meta -CommandArgs $invokeCommand -Interactive
+        }
         break
     }
 }
+
+exit $LASTEXITCODE

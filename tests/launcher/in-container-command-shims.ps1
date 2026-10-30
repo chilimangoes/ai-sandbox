@@ -17,7 +17,7 @@ foreach ($command in @("codex", "claude", "agy", "copilot", "opencode", "cursor-
     }
 
     $realCommand = if ($command -eq "cursor") { "cursor-agent" } else { $command }
-    $dispatchPath = if ($command -eq "claude") { "/opt/ai-sandbox/claude-wrapper.sh" } else { "/opt/ai-sandbox/bin/${realCommand}" }
+    $dispatchPath = if ($command -eq "claude") { "/opt/ai-sandbox/claude-wrapper.sh" } elseif ($command -eq "t3") { '$REAL_BIN_DIR/t3' } else { "/opt/ai-sandbox/bin/${realCommand}" }
     if ($entrypoint -notmatch [regex]::Escape($dispatchPath)) {
         throw "Expected docker/entrypoint.sh to call the real $command binary when dispatching $command."
     }

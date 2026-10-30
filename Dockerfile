@@ -39,6 +39,7 @@ RUN apt-get update \
         passwd \
         procps \
         python3 \
+        python3-qrcode \
         ripgrep \
         sudo \
         unzip \
@@ -91,6 +92,7 @@ COPY docker/bootstrap/ /opt/ai-sandbox/bootstrap/
 COPY docker/entrypoint.sh /opt/ai-sandbox/entrypoint.sh
 COPY docker/claude-wrapper.sh /opt/ai-sandbox/claude-wrapper.sh
 COPY docker/t3-startup.py /opt/ai-sandbox/t3-startup.py
+COPY docker/t3-output.py /opt/ai-sandbox/t3-output.py
 COPY tests/smoke/image-smoke-check.sh /opt/ai-sandbox/image-smoke-check.sh
 
 RUN chmod +x /opt/ai-sandbox/entrypoint.sh /opt/ai-sandbox/claude-wrapper.sh /opt/ai-sandbox/bootstrap/*.sh /opt/ai-sandbox/image-smoke-check.sh

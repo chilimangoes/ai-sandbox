@@ -2,31 +2,6 @@
 param()
 
 $ErrorActionPreference = "Stop"
-
-$entrypoint = Get-Content (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "docker\entrypoint.sh") -Raw
-
-if ($entrypoint -notmatch 't3 start --no-browser --host 0\.0\.0\.0 --port') {
-    throw "Expected docker/entrypoint.sh to invoke the installed t3 binary with the start subcommand and no-browser mode."
-}
-
-if ($entrypoint -notmatch 'export T3CODE_HOME=/state/data/t3;') {
-    throw "Expected docker/entrypoint.sh to persist T3 runtime state under /state/data/t3."
-}
-
-if ($entrypoint -notmatch 'export AI_SANDBOX_WORKSPACE_PATH=') {
-    throw "Expected docker/entrypoint.sh to export AI_SANDBOX_WORKSPACE_PATH before dispatching commands."
-}
-
-if ($entrypoint -notmatch 't3 start --no-browser --host 0\.0\.0\.0 --port .* --base-dir /state/data/t3 --auto-bootstrap-project-from-cwd') {
-    throw "Expected docker/entrypoint.sh to auto-bootstrap the current workspace path as a T3 project on first launch."
-}
-
-if ($entrypoint -match '--state-dir') {
-    throw "docker/entrypoint.sh passes --state-dir, but this T3 CLI exposes --base-dir instead."
-}
-
-if ($entrypoint -match 'npx --yes t3') {
-    throw "docker/entrypoint.sh still relies on npx for T3 startup."
-}
-
+& python (Join-Path $PSScriptRoot "t3-dispatch.py")
+if ($LASTEXITCODE -ne 0) { throw "T3 dispatch checks failed (exit $LASTEXITCODE)." }
 Write-Host "t3-command.ps1 passed"

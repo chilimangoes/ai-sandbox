@@ -326,7 +326,9 @@ exec_in_container() {
       "$CONTAINER_NAME" \
       /opt/ai-sandbox/entrypoint.sh "$@"
   else
-    docker exec \
+    local -a input_args=()
+    [[ "$interactive" != stdin ]] || input_args=(-i)
+    docker exec "${input_args[@]}" \
       -e "AI_SANDBOX_T3_URL=http://${HOST_ADDRESS}:${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_HOST_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
       -e "AI_SANDBOX_T3_PORT=${DEFAULT_T3_CONTAINER_PORT}" \
@@ -376,8 +378,8 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
     *)
-      POSITIONALS+=("$1")
-      shift
+      POSITIONALS+=("$@")
+      break
       ;;
     esac
 done
@@ -448,7 +450,11 @@ case "$COMMAND" in
     exec_in_container false doctor
     ;;
   t3)
-    exec_in_container false "$COMMAND" "${COMMAND_ARGS[@]}"
+    if [[ -t 0 && -t 1 ]]; then
+      exec_in_container true "$COMMAND" "${COMMAND_ARGS[@]}"
+    else
+      exec_in_container stdin "$COMMAND" "${COMMAND_ARGS[@]}"
+    fi
     ;;
   shell)
     exec_in_container true shell

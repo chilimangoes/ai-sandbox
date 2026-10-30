@@ -2,19 +2,6 @@
 param()
 
 $ErrorActionPreference = "Stop"
-
-$entrypoint = Get-Content (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "docker\entrypoint.sh") -Raw
-
-if ($entrypoint -notmatch 'Connection string: \$AI_SANDBOX_T3_URL') {
-    throw "Expected docker/entrypoint.sh to rewrite the T3 connection string to the host-visible URL."
-}
-
-if ($entrypoint -notmatch 'Pairing URL: \$AI_SANDBOX_T3_URL/pair#token=\$token') {
-    throw "Expected docker/entrypoint.sh to rewrite the T3 pairing URL to the host-visible URL."
-}
-
-if ($entrypoint -notmatch 'pairingUrl: \$AI_SANDBOX_T3_URL/pair#token=\$token') {
-    throw "Expected docker/entrypoint.sh to rewrite structured T3 pairingUrl log fields to the host-visible URL."
-}
-
+& python (Join-Path $PSScriptRoot "t3-output.py")
+if ($LASTEXITCODE -ne 0) { throw "T3 output checks failed (exit $LASTEXITCODE)." }
 Write-Host "t3-output.ps1 passed"
