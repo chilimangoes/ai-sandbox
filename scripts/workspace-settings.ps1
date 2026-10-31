@@ -87,6 +87,29 @@ function Get-ContainerWorkspaceSettingsSignature {
     return ''
 }
 
+function Get-ContainerRuntimeImage {
+    param([string]$Name, [string]$Tag, [string]$FallbackImageId)
+    # Compare the runnable platform manifest, excluding the index's build attestations.
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+        $value = & docker inspect --format '{{json .ImageManifestDescriptor}}' $Name 2>&1
+        if ($LASTEXITCODE -ne 0) { throw 'Could not read the container image descriptor.' }
+        $descriptor = ($value -join "`n") | ConvertFrom-Json
+        if (-not $descriptor.digest) {
+            $currentId = Get-ImageId -Tag $Tag
+            if (-not $currentId) { throw 'Could not inspect the workspace image.' }
+            return [pscustomobject]@{ Running = $FallbackImageId; Current = $currentId }
+        }
+        $platform = "$($descriptor.platform.os)/$($descriptor.platform.architecture)"
+        if ($descriptor.platform.variant) { $platform += "/$($descriptor.platform.variant)" }
+        $current = & docker image inspect --platform $platform --format '{{.Id}}' $Tag 2>&1
+        if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the workspace platform image.' }
+        [pscustomobject]@{ Running = $descriptor.digest; Current = ($current -join "`n").Trim() }
+    } finally { $ErrorActionPreference = $previousPreference }
+}
+
 function Get-WorkspaceTrustPath {
     param([pscustomobject]$Meta)
     Join-Path $HOME ".ai-sandbox/trusted-workspaces/$($Meta.Hash)"

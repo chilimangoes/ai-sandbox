@@ -36,7 +36,13 @@ if args[:2] == ['network', 'create']:
 if args[0] == 'compose':
     finish()
 if args[:2] == ['image', 'inspect']:
-    image = state['images'].get(args[-1])
+    reference = args[-1]
+    contents = state.get('image_contents', {})
+    image = state['images'].get(reference, reference if reference in contents or reference in state['images'].values() else None)
+    if image and '--platform' in args:
+        if state.get('fail_image_contents'):
+            finish(1)
+        finish(output=contents.get(image, image))
     finish(0 if image else 1, image or '')
 if args[0] == 'build':
     tag = option('-t')
@@ -53,7 +59,11 @@ if args[0] == 'build':
                 digest.update(path.read_bytes())
     else:
         digest.update(str(len([call for call in state['calls'] if call[0] == 'build'])).encode())
-    state['images'][tag] = 'sha256:' + digest.hexdigest()
+    content = digest.hexdigest()
+    # Model a containerd image store: fresh build metadata changes the ID even on cache hits.
+    identifier = 'sha256:' + hashlib.sha256((content + str(len(state['calls']))).encode()).hexdigest()
+    state['images'][tag] = identifier
+    state.setdefault('image_contents', {})[identifier] = content
     finish()
 if args[0] == 'tag':
     state['images'][args[2]] = args[1]
@@ -65,6 +75,11 @@ if args[0] == 'ps':
 if args[0] == 'inspect':
     container = state['containers'][args[-1]]
     template = option('--format')
+    if '.ImageManifestDescriptor' in template:
+        digest = state.get('image_contents', {}).get(container['image'], container['image'])
+        if template == '{{json .ImageManifestDescriptor}}':
+            finish(output=json.dumps({'digest': digest, 'platform': {'os': 'linux', 'architecture': 'amd64'}}))
+        finish(output=digest + ' linux/amd64')
     if template == '{{.Image}}':
         finish(output=container['image'])
     if template == '{{ json .Config.Labels }}':

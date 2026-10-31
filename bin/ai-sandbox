@@ -231,6 +231,14 @@ ensure_container() {
     local running_supplemental_signature
     local recreate_needed="false"
     running_image_id="$(container_image_id "$CONTAINER_NAME")"
+    local image_changed="false"
+    if [[ "$running_image_id" != "$current_image_id" ]]; then
+      image_changed="true"
+      if [[ "$FORCE_RECREATE" != "true" ]]; then
+        container_runtime_image "$running_image_id"
+        [[ "$RUNTIME_RUNNING_IMAGE" != "$RUNTIME_CURRENT_IMAGE" ]] || image_changed="false"
+      fi
+    fi
     running_supplemental_signature="$(container_supplemental_signature "$CONTAINER_NAME")"
     local current_t3_host_port
     current_t3_host_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
@@ -238,7 +246,7 @@ ensure_container() {
     current_alt_http_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_ALT_HTTP_CONTAINER_PORT")"
     local current_app_port
     current_app_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_APP_CONTAINER_PORT")"
-    if [[ "$FORCE_RECREATE" == "true" || "$running_image_id" != "$current_image_id" ]]; then
+    if [[ "$FORCE_RECREATE" == "true" || "$image_changed" == "true" ]]; then
       recreate_needed="true"
     fi
     if [[ "$running_supplemental_signature" != "$SUPPLEMENTAL_SIGNATURE" ]]; then

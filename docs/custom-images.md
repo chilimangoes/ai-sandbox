@@ -48,7 +48,9 @@ The launcher supplies `AI_SANDBOX_BASE_IMAGE` automatically. Preserve the inheri
 
 Every launch checks the project build through Docker's cache. Dockerfile and copied-file changes invalidate the affected layers. Workspaces without `.ai-sandbox/Dockerfile` use the shared base image.
 
-When using `ai-sandbox --rebuild`: Changed image IDs or launch settings trigger container replacement. Replacement stops active sandbox sessions and application processes. Workspace files and the config, authentication, data, and cache volumes survive replacement. A build failure reports an error and preserves the existing container.
+Additional terminals attach to the same workspace container. Cached builds with identical filesystem layers and runtime configuration preserve active sessions, including when Docker's build records change the image ID.
+
+Changes to image contents or launch settings trigger container replacement. `ai-sandbox --rebuild` forces replacement. Replacement stops active sandbox sessions and application processes. Workspace files and the config, authentication, data, and cache volumes survive replacement. A build failure reports an error and preserves the existing container.
 
 Each workspace path has its own container and project image tag. Shared base layers and unchanged project layers can be reused by Docker across workspaces. The launcher records a local base-image snapshot so concurrent updates use a consistent base during each project build.
 

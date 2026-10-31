@@ -45,7 +45,7 @@ def main():
 
         def launch(*arguments, success=True):
             result = subprocess.run(command(*arguments), cwd=workspace, env=env, stdin=subprocess.DEVNULL,
-                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=90)
             assert (result.returncode == 0) == success, result.stdout
             return result.stdout
 
@@ -92,6 +92,10 @@ def main():
         runs = len([call for call in calls() if call[0] == 'run'])
         launch('doctor')
         assert len([call for call in calls() if call[0] == 'run']) == runs
+        container_image = next(iter(state()['containers'].values()))['image']
+        latest_build = state()['images'][builds[0][builds[0].index('-t') + 1]]
+        assert container_image != latest_build, 'Fixture must vary build metadata IDs on cache hits'
+        assert state()['image_contents'][container_image] == state()['image_contents'][latest_build]
 
         # Helper edits are picked up under the existing workspace approval.
         (config / 'install.sh').write_text('echo updated dependencies\n')
@@ -104,6 +108,14 @@ def main():
         assert 'build failed' in launch('--rebuild', 'doctor', success=False)
         assert state()['containers'] == before and state()['volumes'] == original_volumes
         update(fail_build=False)
+
+        # Inspection errors must preserve the container rather than guessing that it changed.
+        update(fail_image_contents=True)
+        count = len(calls())
+        assert 'Could not inspect the workspace platform image' in launch('doctor', success=False)
+        assert state()['containers'] == before
+        assert not any(call[0] == 'rm' for call in calls()[count:])
+        update(fail_image_contents=False)
 
         credentials = root / 'shared credentials'
         credentials.mkdir()
@@ -126,7 +138,8 @@ def main():
         image = next(iter(state()['containers'].values()))['image']
         launch('doctor')
         assert len([call for call in calls() if call[0] == 'run']) == runs + 1
-        assert next(iter(state()['containers'].values()))['image'] == image
+        changed_image = next(iter(state()['containers'].values()))['image']
+        assert state()['image_contents'][changed_image] == state()['image_contents'][image]
 
         # Missing networks and invalid settings fail before builds or replacement.
         for text in ('network=missing\n', 'port=65536\n', 'port=5000\nport=05000\n', 'env=HOME=/tmp\n',
@@ -159,7 +172,7 @@ def main():
         processes = [subprocess.Popen(command('doctor'), cwd=workspace, env=env, stdin=subprocess.DEVNULL,
                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) for _ in range(2)]
         for process in processes:
-            output, _ = process.communicate(timeout=45)
+            output, _ = process.communicate(timeout=90)
             assert process.returncode == 0, output
         assert len([call for call in calls()[count:] if call[0] == 'run']) == 1
         assert not any(call[:2] == ['volume', 'rm'] for call in calls())

@@ -437,13 +437,18 @@ function Ensure-Container {
 
     if (Test-ContainerExists -Name $Meta.Container) {
         $containerImageId = Get-ContainerImageId -Name $Meta.Container
+        $imageChanged = $containerImageId -ne $currentImageId
+        if ($imageChanged -and -not $ForceRecreate) {
+            $runtimeImage = Get-ContainerRuntimeImage -Name $Meta.Container -Tag $ImageTag -FallbackImageId $containerImageId
+            $imageChanged = $runtimeImage.Running -cne $runtimeImage.Current
+        }
         $containerSupplementalSignature = Get-ContainerSupplementalFolderSignature -Name $Meta.Container
         $containerSettingsSignature = Get-ContainerWorkspaceSettingsSignature -Name $Meta.Container
         $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
         $existingAltHttpPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAltHttpContainerPort
         $existingAppPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAppContainerPort
         if ($ForceRecreate -or
-            $containerImageId -ne $currentImageId -or
+            $imageChanged -or
             $containerSupplementalSignature -ne $SupplementalFolders.Signature -or
             $containerSettingsSignature -cne $workspaceSettings.Signature -or
             ($existingT3Port -and $existingT3Port -ne $DefaultT3ContainerPort) -or

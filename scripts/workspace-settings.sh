@@ -64,6 +64,23 @@ read_workspace_settings() {
   fi
 }
 
+container_runtime_image() {
+  # Compare the runnable platform manifest, excluding the index's build attestations.
+  local descriptor platform
+  descriptor="$(docker inspect --format '{{if .ImageManifestDescriptor}}{{.ImageManifestDescriptor.digest}} {{.ImageManifestDescriptor.platform.os}}/{{.ImageManifestDescriptor.platform.architecture}}{{if .ImageManifestDescriptor.platform.variant}}/{{.ImageManifestDescriptor.platform.variant}}{{end}}{{end}}' "$CONTAINER_NAME")" || return 1
+  if [[ -z "$descriptor" ]]; then
+    RUNTIME_RUNNING_IMAGE="$1"
+    RUNTIME_CURRENT_IMAGE="$(image_id "$IMAGE_TAG")"
+    [[ -n "$RUNTIME_CURRENT_IMAGE" ]] || { echo 'Could not inspect the workspace image.' >&2; return 1; }
+    return
+  fi
+  read -r RUNTIME_RUNNING_IMAGE platform <<< "$descriptor"
+  RUNTIME_CURRENT_IMAGE="$(docker image inspect --platform "$platform" --format '{{.Id}}' "$IMAGE_TAG")" || {
+    echo 'Could not inspect the workspace platform image. The existing container has not been replaced.' >&2
+    return 1
+  }
+}
+
 check_workspace_networks() {
   local network
   for network in "${WORKSPACE_NETWORKS[@]}"; do
