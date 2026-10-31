@@ -12,7 +12,7 @@ Docker and `ai-sandbox` must be installed on the host. On Linux, the launcher al
 1. In the project root, create `.ai-sandbox/Dockerfile`:
 
    ```dockerfile
-   ARG AI_SANDBOX_BASE_IMAGE
+   ARG AI_SANDBOX_BASE_IMAGE=ai-sandbox:latest
    FROM ${AI_SANDBOX_BASE_IMAGE}
 
    RUN curl -fsSL https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \

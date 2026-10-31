@@ -78,7 +78,7 @@ def main():
             assert '-i' in execution and '-it' not in execution, execution
             assert not any(call[0] == 'build' for call in invoked)
 
-        (config / 'Dockerfile').write_text('ARG AI_SANDBOX_BASE_IMAGE\nFROM ${AI_SANDBOX_BASE_IMAGE}\nCOPY install.sh /tmp/install.sh\n')
+        (config / 'Dockerfile').write_text('ARG AI_SANDBOX_BASE_IMAGE=ai-sandbox:latest\nFROM ${AI_SANDBOX_BASE_IMAGE}\nCOPY install.sh /tmp/install.sh\n')
         (config / 'install.sh').write_text('echo project dependencies\n')
         assert 'ai-sandbox trust' in launch('doctor', success=False)
         assert not any(call[0] == 'build' for call in calls())

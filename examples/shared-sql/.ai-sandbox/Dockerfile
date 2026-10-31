@@ -1,4 +1,4 @@
-ARG AI_SANDBOX_BASE_IMAGE
+ARG AI_SANDBOX_BASE_IMAGE=ai-sandbox:latest
 FROM ${AI_SANDBOX_BASE_IMAGE}
 
 RUN curl -fsSL https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
