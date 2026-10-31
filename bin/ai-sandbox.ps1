@@ -112,6 +112,10 @@ function Split-SupplementalFolderLine {
         throw "Invalid supplemental folder mode '$mode' in ${Path}:${LineNumber}. Expected ro or rw."
     }
 
+    # PowerShell's location can differ from the process working directory used by .NET.
+    if (-not [System.IO.Path]::IsPathRooted($hostPath)) {
+        $hostPath = Join-Path (Get-Location).Path $hostPath
+    }
     [pscustomobject]@{
         HostPath = [System.IO.Path]::GetFullPath($hostPath)
         Name = $name

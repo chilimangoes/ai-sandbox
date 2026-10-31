@@ -28,9 +28,9 @@ services:
     command:
       - |
         export SQLCMDPASSWORD="$$MSSQL_SA_PASSWORD"
-        /opt/mssql-tools18/bin/sqlcmd -S test-sql -U sa -C -b -i /tmp/init.sql -v TestPassword="$$TEST_SQL_PASSWORD"
+        /opt/mssql-tools18/bin/sqlcmd -S test-sql -U sa -C -b -l 30 -t 30 -i /tmp/init.sql -v TestPassword="$$TEST_SQL_PASSWORD"
         export SQLCMDPASSWORD="$$TEST_SQL_PASSWORD"
-        /opt/mssql-tools18/bin/sqlcmd -S test-sql -U sandbox_test -C -b -Q 'SELECT 1' -o /dev/null
+        /opt/mssql-tools18/bin/sqlcmd -S test-sql -U sandbox_test -C -b -l 30 -t 30 -Q 'SELECT 1' -o /dev/null
 networks:
   test:
     external: true

@@ -45,17 +45,23 @@ Configure the application to listen on a container network interface, such as `0
 
 The [shared SQL example](../examples/shared-sql/) includes a custom .NET sandbox Dockerfile, workspace network settings, a Compose file, and host bootstrap scripts for Windows and Linux. Docker Compose v2 and an x86-64 Docker host are required. The SQL service has a `3 GiB` container memory limit. Microsoft documents the supported platforms in its [SQL Server container guide](https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-docker?view=sql-server-ver17).
 
-1. Copy the example's `.ai-sandbox/` and `dev/` directories into your project. If these directories exist, merge the example files with your project's definitions.
+1. Copy the example's `.ai-sandbox/` and `dev/` directories into your project. If these directories exist, merge the example files with your project's definitions. Commit the supplied `.ai-sandbox/supplemental-folders.config`, which contains this portable mapping:
+
+   ```text
+   .local/test-sql/client|test-sql|ro
+   ```
+
+   The bootstrap launches `ai-sandbox` from the project root, so every checkout resolves this relative path to its own generated connection file. Add other project folder mappings to the same committed file.
 
 2. Choose a service-group name for your project. Replace `example-project-test-sql` in `.ai-sandbox/workspace.config` and both host scripts with that name. Keep the name consistent across checkouts that share SQL Server on a host.
 
 3. Add this entry to the project's `.gitignore`:
 
    ```gitignore
-   .ai-sandbox/supplemental-folders.config
+   .local/test-sql/
    ```
 
-   The bootstrap writes the host-specific credentials mount into that file. The example's `.dockerignore` also excludes it from image builds.
+   The example includes this entry in its `.gitignore`. Generated SQL files live outside `.ai-sandbox/`, the directory used for image building.
 
 4. On Windows, run the project bootstrap from PowerShell:
 
@@ -71,15 +77,22 @@ The [shared SQL example](../examples/shared-sql/) includes a custom .NET sandbox
 
    Approve the workspace when `ai-sandbox` prompts. These commands also accept sandbox arguments, such as `t3` or `--rebuild`.
 
-The bootstrap serializes setup for the service group, generates passwords on first use, and creates the shared network. It starts or reuses the SQL container, waits for a successful SQL health check, and provisions the `sandbox_test` login. A second connection verifies that the test login works before the sandbox launches.
+The bootstrap serializes setup for the service group using a temporary helper container on Docker. Its name is `<service-group>-bootstrap-lock`. Each checkout waits for that same helper, which is removed after setup and expires after ten minutes if a bootstrap exits unexpectedly.
 
-Generated state lives under `~/.ai-sandbox/services/<service-group>/`. The host's `server.env` holds initialization credentials. The `client/` subdirectory contains `connection.json`, which the bootstrap mounts read-only at `/supplemental/test-sql/`. The runtime variable `PROJECT_TEST_SQL_CONFIG` names that file. Project tests must read its `server`, `user`, and `password` fields to build their connection string. The example uses SQL Server's generated certificate; local test clients must explicitly trust that certificate.
+For a new SQL instance, the bootstrap uses the current checkout's saved passwords or generates them on first use. The SQL container stores both passwords in its environment. When the shared SQL container exists, the bootstrap reads those passwords through host-side Docker inspection and refreshes the current checkout's local files. It starts or reuses SQL, waits for a successful SQL health check, and provisions the `sandbox_test` login. A second connection verifies that the test login works before the sandbox launches.
+
+Each checkout keeps its generated state under `<workspace>/.local/test-sql/`, ignored by Git:
+
+- `server.env` contains `MSSQL_SA_PASSWORD` for SQL initialization and `TEST_SQL_PASSWORD` for the test login. Compose reads this file on the host.
+- `client/connection.json` contains the test connection's `server`, `user`, and `password` fields. The committed folder mapping exposes this directory read-only at `/supplemental/test-sql/`.
+
+The runtime variable `PROJECT_TEST_SQL_CONFIG` names the mounted JSON file. Project tests must read its fields to build their connection string. The example uses SQL Server's generated certificate; local test clients must explicitly trust that certificate.
 
 Each sandbox connects to `test-sql,1433` through the shared network. The Compose file publishes no SQL port to the host. Docker operations run in the host script, while agents use SQL connections inside their sandboxes.
 
 ## Run tests concurrently
 
-All participating checkouts use the same Compose project name, network, and host credentials directory. Each workspace has its own sandbox container and persisted volumes.
+All participating checkouts use the same Compose project name and network. Each checkout has its own `.local/test-sql/` directory with credentials refreshed from the shared SQL container. Each workspace also has its own sandbox container and persisted volumes.
 
 Give each test run a unique database name, such as `integration_<random-id>`. Create the database before the test and drop that database during cleanup. The example grants `dbcreator` to the shared test login. That role permits operations on other databases, so this setup assumes trusted agents using disposable development data.
 
@@ -93,7 +106,7 @@ To inspect the example service on Windows, set its group and state directory, th
 
 ```powershell
 $env:TEST_SQL_GROUP = 'example-project-test-sql'
-$env:TEST_SQL_STATE_DIR = Join-Path $HOME ".ai-sandbox/services/$env:TEST_SQL_GROUP"
+$env:TEST_SQL_STATE_DIR = Join-Path (Get-Location).Path '.local/test-sql'
 docker compose --project-name $env:TEST_SQL_GROUP --file dev/compose.yaml ps
 ```
 
@@ -101,10 +114,10 @@ On Linux, run:
 
 ```sh
 export TEST_SQL_GROUP=example-project-test-sql
-export TEST_SQL_STATE_DIR="$HOME/.ai-sandbox/services/$TEST_SQL_GROUP"
+export TEST_SQL_STATE_DIR="$PWD/.local/test-sql"
 docker compose --project-name "$TEST_SQL_GROUP" --file dev/compose.yaml ps
 ```
 
-With those variables set, replace `ps` with `stop sql` to stop SQL Server. To discard all test databases, first stop test activity in every participating sandbox, then replace `ps` with `down`. Removing the SQL container deletes its database files. Run the project bootstrap to create a blank instance with the saved development credentials. The external network and host credentials directory survive `down`.
+Run these commands from the project root after its bootstrap has completed. With those variables set, replace `ps` with `stop sql` to stop SQL Server. To discard all test databases, first stop test activity in every participating sandbox, then replace `ps` with `down`. Removing the SQL container deletes its database files. Run the project bootstrap to create a blank instance with the invoking checkout's saved development credentials. The external network and each checkout's local credentials files survive `down`.
 
 Use a single project checkout to administer the shared service. The bootstrap's `--no-recreate` option preserves a running service during launches from other worktrees. To apply changes to the SQL image or service definition, stop test activity and recreate the service explicitly from that checkout.

@@ -83,6 +83,17 @@ if (-not $signatureFunction.Success) {
 $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-sandbox-supplemental-test-" + [guid]::NewGuid().ToString("n"))
 New-Item -ItemType Directory -Path $tempDir | Out-Null
 try {
+    foreach ($name in @('Test-ContainerFolderName', 'Split-SupplementalFolderLine')) {
+        $function = [regex]::Match($launcher, '(?ms)^function ' + $name + ' \{.*?^\}')
+        Invoke-Expression $function.Value
+    }
+    Push-Location $tempDir
+    try {
+        $entry = Split-SupplementalFolderLine -Line '.local/test-sql/client|test-sql|ro' -Path 'test.config' -LineNumber 1
+        $expected = Join-Path (Get-Location).Path '.local/test-sql/client'
+        if ($entry.HostPath -ne $expected) { throw 'Relative mounts must resolve from the PowerShell workspace location.' }
+    } finally { Pop-Location }
+
     $dockerShim = Join-Path $tempDir "docker.cmd"
     Set-Content -LiteralPath $dockerShim -Encoding ASCII -Value @'
 @echo off
