@@ -108,7 +108,7 @@ Maintenance commands:
 - Base image: Debian Bookworm slim
 - Runtime: Node.js 22
 - Common packages: `bash`, `curl`, `gh`, `git`, `jq`, `less`, `procps`, `ripgrep`, `sudo`, `unzip`, `ca-certificates`
-- Runtime user: root for shell and most tool commands; T3 and Claude Code run as the mapped `sandbox` user. All use `HOME=/home/sandbox` for persisted auth/config paths.
+- Runtime user: root for shell and most tool commands; T3, Claude Code, and Antigravity CLI run as the mapped `sandbox` user. All use `HOME=/home/sandbox` for persisted auth/config paths.
 - Command shims: the installed tool commands in the shell route back through `/opt/ai-sandbox/entrypoint.sh`, while the entrypoint calls the real binaries from `/opt/ai-sandbox/bin`
 
 The image installs:
@@ -134,4 +134,4 @@ Windows-first design points:
 Linux notes:
 
 - The shell launcher follows the same naming and lifecycle rules.
-- The launcher passes the host UID/GID for the persisted `sandbox` home layout. Shell and most tool commands run as root inside the sandbox. T3 runs as the mapped `sandbox` UID to support features that require a non-root user. Claude Code also runs as that UID because Claude blocks `--dangerously-skip-permissions` as root.
+- The launcher passes the host UID/GID for the persisted `sandbox` home layout. Shell and most tool commands run as root inside the sandbox. T3 runs as the mapped `sandbox` UID to support features that require a non-root user. Claude Code also runs as that UID because Claude blocks `--dangerously-skip-permissions` as root. Antigravity CLI runs as that UID to share access to its persisted files with T3.

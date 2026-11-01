@@ -273,7 +273,7 @@ dispatch() {
       run_argv_as_sandbox /opt/ai-sandbox/claude-wrapper.sh "$@"
       ;;
     agy)
-      run_argv_as_root /opt/ai-sandbox/bin/agy "$@"
+      run_argv_as_sandbox /opt/ai-sandbox/bin/agy "$@"
       ;;
     copilot)
       run_argv_as_root /opt/ai-sandbox/bin/copilot "$@"

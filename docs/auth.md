@@ -28,7 +28,9 @@ All auth happens inside the sandbox and persists in Docker volumes. The launcher
 
 - Authenticate inside the sandbox by following the Antigravity CLI login flow.
 - Antigravity preset files live under `/state/config/antigravity`.
-- Antigravity auth artifacts stay under `/state/auth/antigravity`.
+- The CLI runs as the `sandbox` user and stores its OAuth token at `/state/auth/antigravity/antigravity-oauth-token`.
+- `~/.gemini/antigravity-cli` links to `/state/data/antigravity/home` for CLI settings and session state.
+- For T3, install Antigravity and sign in through its provider settings. T3 uses the Antigravity ACP runtime and a separate authentication profile, stored under `/state/data/t3`.
 
 ## Copilot
 

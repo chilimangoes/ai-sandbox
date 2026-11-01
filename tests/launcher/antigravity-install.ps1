@@ -14,4 +14,8 @@ if ($dockerfile -notmatch 'command -v agy') {
     throw "Expected Dockerfile to verify that the agy command is available before shimming it."
 }
 
+if ($dockerfile -notmatch 'mv /root/\.local/bin/agy /usr/local/bin/agy') {
+    throw "Expected Antigravity's executable to be accessible outside root's home."
+}
+
 Write-Host "antigravity-install.ps1 passed"

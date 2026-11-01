@@ -53,7 +53,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 
 RUN npm install -g @openai/codex @anthropic-ai/claude-code @github/copilot opencode-ai t3@latest \
     && curl -fsSL https://antigravity.google/cli/install.sh | bash \
-    && ln -sf /root/.local/bin/agy /usr/local/bin/agy \
+    && mv /root/.local/bin/agy /usr/local/bin/agy \
     && command -v agy >/dev/null \
     && curl https://cursor.com/install -fsS | bash \
     && ln -sf /root/.local/bin/cursor-agent /usr/local/bin/cursor-agent \

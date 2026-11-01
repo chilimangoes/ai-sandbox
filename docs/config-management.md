@@ -118,8 +118,9 @@ Claude Code:
 Antigravity:
 
 - default config: `/state/config/antigravity/settings.json`
-- auth target: `/state/auth/antigravity/`
-- runtime home: `~/.antigravity`
+- OAuth token: `/state/auth/antigravity/antigravity-oauth-token`
+- runtime home: `~/.gemini/antigravity-cli`, linked to `/state/data/antigravity/home`
+- runtime settings and OAuth token are linked to the config and auth volumes
 
 Copilot:
 

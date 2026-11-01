@@ -38,7 +38,7 @@ flock 9
 
 /opt/ai-sandbox/bootstrap/sync-configs.sh
 
-mkdir -p /home/sandbox/.codex /home/sandbox/.copilot /home/sandbox/.config /home/sandbox/.cache /home/sandbox/.local/share
+mkdir -p /home/sandbox/.codex /home/sandbox/.copilot /home/sandbox/.config /home/sandbox/.cache /home/sandbox/.local/share /home/sandbox/.gemini
 
 rm -rf /home/sandbox/.config/cursor
 ln -sfn /state/auth/cursor /home/sandbox/.config/cursor
@@ -72,10 +72,9 @@ if [[ -f /state/data/claude/claude.json ]]; then
   cp /state/data/claude/claude.json /home/sandbox/.claude.json
 fi
 
-rm -rf /home/sandbox/.antigravity
-ln -sfn /state/data/antigravity/home /home/sandbox/.antigravity
+ln -sfn /state/data/antigravity/home /home/sandbox/.gemini/antigravity-cli
 ln -sfn /state/config/antigravity/settings.json /state/data/antigravity/home/settings.json
-ln -sfn /state/auth/antigravity /state/data/antigravity/home/auth
+ln -sfn /state/auth/antigravity/antigravity-oauth-token /state/data/antigravity/home/antigravity-oauth-token
 
 ln -sfn /state/config/copilot/config.json /home/sandbox/.copilot/config.json
 ln -sfn /state/auth/copilot /home/sandbox/.copilot/auth
