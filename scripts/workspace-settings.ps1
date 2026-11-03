@@ -155,6 +155,7 @@ function Enter-LauncherLock {
 
 function Initialize-WorkspaceImage {
     param([pscustomobject]$Meta, [switch]$Refresh)
+    if ((Test-ContainerExists -Name $Meta.Container) -and -not $Refresh) { return }
     $dockerfile = Join-Path $Meta.Workspace '.ai-sandbox/Dockerfile'
     $baseLock = Enter-LauncherLock -Name 'base-image'
     try {

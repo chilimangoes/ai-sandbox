@@ -92,7 +92,7 @@ D:\My_Project_Folder\skills|my-skills|ro
 
 Global mappings load first. Local mappings load second and override global mappings that target the same `/supplemental/<container_name>`.
 
-Changing supplemental folder config recreates the workspace container on the next launch because the launcher stores a hash of the resolved supplemental mounts in the container's `ai-sandbox.supplemental-folders` label.
+Run `ai-sandbox --rebuild` to apply changed supplemental folder config. The launcher records the resolved mounts in the container's `ai-sandbox.supplemental-folders` label.
 
 ## Tool inventory
 
@@ -154,7 +154,7 @@ T3:
 
 - Explicit updates use `docker build --pull --no-cache` so cached installer layers cannot retain old tool versions. This also refreshes Node and system packages and takes longer than a cached build.
 - T3 is installed as `t3@latest`, npm's stable release channel. Bootstrap uses the image's installed binary; it does not download T3 on startup or install it in persisted state.
-- `--update` rebuilds the shared image with refreshed base and npm packages, then keeps using the current workspace container unless it needs to be recreated
+- `--update` rebuilds the shared image with refreshed base and npm packages, then reuses the current workspace container
 - `--rebuild` rebuilds the shared image with refreshed base and npm packages, then always removes and recreates the workspace container
 - `--update`, `--rebuild`, and `rm` preserve `/state/data/agents` in the workspace data volume
 - `reset-state` removes `/state/data/agents` along with the other persisted workspace state

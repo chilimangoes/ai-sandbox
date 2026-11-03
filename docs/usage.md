@@ -23,8 +23,10 @@ Maintenance:
 - `ai-sandbox rm`: remove the current workspace container but keep its persisted volumes
 - `ai-sandbox reset-config`: restore persisted config files from the image defaults while preserving auth and most runtime data
 - `ai-sandbox reset-state`: remove the current workspace container and all persisted state volumes for that workspace, including auth
-- `ai-sandbox --update`: rebuild the shared image, then reuse the existing workspace container unless it needs to be recreated
+- `ai-sandbox --update`: rebuild the shared image and workspace image, then reuse the existing workspace container
 - `ai-sandbox --rebuild`: rebuild the shared image and always remove and recreate the workspace container
+
+Ordinary launches reuse the existing workspace container, starting it if stopped. Image, mount, network, environment, and port changes take effect with `--rebuild`.
 
 ## Cursor defaults
 

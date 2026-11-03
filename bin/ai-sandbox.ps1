@@ -430,33 +430,19 @@ function Ensure-Container {
         [switch]$ForceRecreate
     )
 
-    $currentImageId = Get-ImageId -Tag $ImageTag
-    if (-not $currentImageId) {
-        throw "Image $ImageTag does not exist."
+    if ((Test-ContainerExists -Name $Meta.Container) -and -not $ForceRecreate) {
+        if (-not (Test-ContainerRunning -Name $Meta.Container)) {
+            docker start $Meta.Container | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Failed to start existing container $($Meta.Container)." }
+        }
+        Write-Host "Reusing workspace container $($Meta.Container). Use --rebuild to apply image or launch setting changes."
+        return
     }
 
-    if (Test-ContainerExists -Name $Meta.Container) {
-        $containerImageId = Get-ContainerImageId -Name $Meta.Container
-        $imageChanged = $containerImageId -ne $currentImageId
-        if ($imageChanged -and -not $ForceRecreate) {
-            $runtimeImage = Get-ContainerRuntimeImage -Name $Meta.Container -Tag $ImageTag -FallbackImageId $containerImageId
-            $imageChanged = $runtimeImage.Running -cne $runtimeImage.Current
-        }
-        $containerSupplementalSignature = Get-ContainerSupplementalFolderSignature -Name $Meta.Container
-        $containerSettingsSignature = Get-ContainerWorkspaceSettingsSignature -Name $Meta.Container
-        $existingT3Port = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultT3ContainerPort
-        $existingAltHttpPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAltHttpContainerPort
-        $existingAppPort = Get-ExistingHostPort -Name $Meta.Container -ContainerPort $DefaultAppContainerPort
-        if ($ForceRecreate -or
-            $imageChanged -or
-            $containerSupplementalSignature -ne $SupplementalFolders.Signature -or
-            $containerSettingsSignature -cne $workspaceSettings.Signature -or
-            ($existingT3Port -and $existingT3Port -ne $DefaultT3ContainerPort) -or
-            ($existingAltHttpPort -and $existingAltHttpPort -ne $DefaultAltHttpContainerPort) -or
-            ($existingAppPort -and $existingAppPort -ne $DefaultAppContainerPort)) {
-            Write-Host 'Replacing the workspace container to apply image or launch settings. Active sessions will stop; persisted volumes are preserved.'
-            Remove-ContainerIfExists -Name $Meta.Container
-        }
+    $currentImageId = Get-ImageId -Tag $ImageTag
+    if (-not $currentImageId) { throw "Image $ImageTag does not exist." }
+    if ($ForceRecreate) {
+        Remove-ContainerIfExists -Name $Meta.Container
     }
 
     Ensure-Volume -Name $Meta.ConfigVolume

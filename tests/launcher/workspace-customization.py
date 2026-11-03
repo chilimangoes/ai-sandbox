@@ -83,6 +83,10 @@ def main():
         assert 'ai-sandbox trust' in launch('doctor', success=False)
         assert not any(call[0] == 'build' for call in calls())
         launch('trust')
+        count = len(calls())
+        launch('doctor')
+        assert not any(call[0] in ('build', 'rm', 'run') for call in calls()[count:])
+        launch('rm')
         launch('doctor')
         builds = [call for call in calls() if call[0] == 'build']
         assert len(builds) == 1 and '--pull' not in builds[0] and '--no-cache' not in builds[0]
@@ -92,15 +96,22 @@ def main():
         runs = len([call for call in calls() if call[0] == 'run'])
         launch('doctor')
         assert len([call for call in calls() if call[0] == 'run']) == runs
-        container_image = next(iter(state()['containers'].values()))['image']
-        latest_build = state()['images'][builds[0][builds[0].index('-t') + 1]]
-        assert container_image != latest_build, 'Fixture must vary build metadata IDs on cache hits'
-        assert state()['image_contents'][container_image] == state()['image_contents'][latest_build]
-
-        # Helper edits are picked up under the existing workspace approval.
+        # Image, mount, environment, and port changes require explicit replacement.
+        before = state()['containers']
         (config / 'install.sh').write_text('echo updated dependencies\n')
+        count = len(calls())
         launch('doctor')
-        assert len([call for call in calls() if call[0] == 'run']) == runs + 1
+        assert state()['containers'] == before
+        assert not any(call[0] in ('build', 'rm', 'run') for call in calls()[count:])
+        launch('--update', 'doctor')
+        assert state()['containers'] == before
+        assert not any(call[0] == 'rm' for call in calls()[count:])
+        launch('stop')
+        count = len(calls())
+        launch('doctor')
+        assert state()['containers'] == before
+        assert any(call[0] == 'start' for call in calls()[count:])
+        assert not any(call[0] in ('build', 'rm', 'run') for call in calls()[count:])
 
         # Failed builds preserve both the previous container and persisted volumes.
         update(fail_build=True)
@@ -109,20 +120,16 @@ def main():
         assert state()['containers'] == before and state()['volumes'] == original_volumes
         update(fail_build=False)
 
-        # Inspection errors must preserve the container rather than guessing that it changed.
-        update(fail_image_contents=True)
-        count = len(calls())
-        assert 'Could not inspect the workspace platform image' in launch('doctor', success=False)
-        assert state()['containers'] == before
-        assert not any(call[0] == 'rm' for call in calls()[count:])
-        update(fail_image_contents=False)
-
         credentials = root / 'shared credentials'
         credentials.mkdir()
         (config / 'supplemental-folders.config').write_text(f'{credentials}|test-sql|ro\n')
         settings = 'network=project-test\nnetwork=second-network\nport=05001\nport=8080\nenv=PROJECT_SQL_CONFIG=/supplemental/test-sql/connection.json\nenv=PROJECT_TEXT=value with spaces=and equals\nenv=EMPTY=\n'
         (config / 'workspace.config').write_bytes(b'\xef\xbb\xbf' + settings.replace('\n', '\r\n').encode())
+        count = len(calls())
         launch('doctor')
+        assert state()['containers'] == before
+        assert not any(call[0] in ('build', 'rm', 'run') for call in calls()[count:])
+        launch('--rebuild', 'doctor')
         run = [call for call in calls() if call[0] == 'run'][-1]
         assert run.count('--network') == 2
         assert 'project-test' in run and 'second-network' in run
@@ -136,10 +143,14 @@ def main():
         assert len([call for call in calls() if call[0] == 'run']) == runs
         (config / 'workspace.config').write_text(settings.replace('env=EMPTY=', 'env=EMPTY=changed'))
         image = next(iter(state()['containers'].values()))['image']
+        count = len(calls())
         launch('doctor')
+        assert len([call for call in calls() if call[0] == 'run']) == runs
+        assert not any(call[0] in ('build', 'rm', 'run') for call in calls()[count:])
+        launch('--rebuild', 'doctor')
         assert len([call for call in calls() if call[0] == 'run']) == runs + 1
         changed_image = next(iter(state()['containers'].values()))['image']
-        assert state()['image_contents'][changed_image] == state()['image_contents'][image]
+        assert changed_image != image
 
         # Missing networks and invalid settings fail before builds or replacement.
         for text in ('network=missing\n', 'port=65536\n', 'port=5000\nport=05000\n', 'env=HOME=/tmp\n',

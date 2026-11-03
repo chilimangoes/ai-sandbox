@@ -14,6 +14,12 @@ HOST_APP_URL="${AI_SANDBOX_APP_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_APP_PORT:
 WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
 REAL_BIN_DIR="${AI_SANDBOX_REAL_BIN_DIR:-/opt/ai-sandbox/bin}"
 
+# Codex validates ownership of its private daemon socket and lock directories.
+set_runtime_ownership() {
+  chown -R sandbox:sandbox /state
+  find /home/sandbox \( -path /home/sandbox/.codex/app-server-control -o -path /home/sandbox/.codex/app-server-daemon \) -prune -o -exec chown -h sandbox:sandbox {} +
+}
+
 ensure_runtime_user() {
   local target_uid="${LOCAL_UID:-1000}"
   local target_gid="${LOCAL_GID:-1000}"
@@ -36,7 +42,7 @@ ensure_runtime_user() {
   fi
 
   mkdir -p /workspace "$WORKSPACE_PATH" /state/config /state/auth /state/data /state/cache /home/sandbox
-  chown -R sandbox:sandbox /state /home/sandbox
+  set_runtime_ownership
 }
 
 run_as_root() {
@@ -70,7 +76,7 @@ run_as_sandbox() {
 if [[ "$(id -u)" == "0" && "${AI_SANDBOX_INITIALIZED:-}" != "1" ]]; then
   ensure_runtime_user
   /opt/ai-sandbox/bootstrap/init-state.sh
-  chown -R sandbox:sandbox /state /home/sandbox
+  set_runtime_ownership
   git config --system --add safe.directory '*' 2>/dev/null || true
   export AI_SANDBOX_INITIALIZED=1
 fi

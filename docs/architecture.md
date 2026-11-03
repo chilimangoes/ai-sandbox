@@ -15,8 +15,8 @@ The host launcher is workspace-centric:
 
 1. Resolve the current working directory as the sandbox workspace.
 2. Derive a stable workspace slug, short hash, and workspace-specific loopback address from the absolute path.
-3. Build or refresh the shared image when required.
-4. Start one detached workspace-scoped container.
+3. Reuse the existing workspace container, starting it if stopped.
+4. Build images and create a container for a new workspace or an explicit `--rebuild`.
 5. Execute either `shell`, `codex`, `claude`, `agy`, `copilot`, `opencode`, `cursor`, `cursor-agent`, or `t3` inside that container.
 
 Each workspace gets:
@@ -91,7 +91,7 @@ Maintenance commands:
 
 - Each workspace gets one deterministic `127.x.y.z` host loopback address derived from the workspace hash.
 - Published services use matching host and container ports on that address.
-- Existing workspace containers are recreated when their published service ports do not match the fixed-port model.
+- Run `ai-sandbox --rebuild` to apply fixed service port mappings to an existing workspace container.
 
 ## T3 exposure
 

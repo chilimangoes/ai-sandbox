@@ -222,55 +222,19 @@ print_supplemental_warnings() {
 }
 
 ensure_container() {
+  if container_exists "$CONTAINER_NAME" && [[ "$FORCE_RECREATE" != "true" ]]; then
+    if ! container_running "$CONTAINER_NAME"; then
+      docker start "$CONTAINER_NAME" >/dev/null
+    fi
+    echo "Reusing workspace container $CONTAINER_NAME. Use --rebuild to apply image or launch setting changes."
+    return
+  fi
+
   local current_image_id
   current_image_id="$(image_id "$IMAGE_TAG")"
   [[ -n "$current_image_id" ]] || { echo "Image $IMAGE_TAG not found." >&2; exit 1; }
-
-  if container_exists "$CONTAINER_NAME"; then
-    local running_image_id
-    local running_supplemental_signature
-    local recreate_needed="false"
-    running_image_id="$(container_image_id "$CONTAINER_NAME")"
-    local image_changed="false"
-    if [[ "$running_image_id" != "$current_image_id" ]]; then
-      image_changed="true"
-      if [[ "$FORCE_RECREATE" != "true" ]]; then
-        container_runtime_image "$running_image_id"
-        [[ "$RUNTIME_RUNNING_IMAGE" != "$RUNTIME_CURRENT_IMAGE" ]] || image_changed="false"
-      fi
-    fi
-    running_supplemental_signature="$(container_supplemental_signature "$CONTAINER_NAME")"
-    local current_t3_host_port
-    current_t3_host_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_T3_CONTAINER_PORT")"
-    local current_alt_http_port
-    current_alt_http_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_ALT_HTTP_CONTAINER_PORT")"
-    local current_app_port
-    current_app_port="$(existing_host_port "$CONTAINER_NAME" "$DEFAULT_APP_CONTAINER_PORT")"
-    if [[ "$FORCE_RECREATE" == "true" || "$image_changed" == "true" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ "$running_supplemental_signature" != "$SUPPLEMENTAL_SIGNATURE" ]]; then
-      recreate_needed="true"
-    fi
-    local running_settings_signature
-    running_settings_signature="$(docker inspect --format '{{ index .Config.Labels "ai-sandbox.workspace-settings" }}' "$CONTAINER_NAME" 2>/dev/null || true)"
-    [[ "$running_settings_signature" != '<no value>' ]] || running_settings_signature=""
-    if [[ "$running_settings_signature" != "$WORKSPACE_SETTINGS_SIGNATURE" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_t3_host_port" && "$current_t3_host_port" != "$DEFAULT_T3_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_alt_http_port" && "$current_alt_http_port" != "$DEFAULT_ALT_HTTP_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ -n "$current_app_port" && "$current_app_port" != "$DEFAULT_APP_CONTAINER_PORT" ]]; then
-      recreate_needed="true"
-    fi
-    if [[ "$recreate_needed" == "true" ]]; then
-      echo 'Replacing the workspace container to apply image or launch settings. Active sessions will stop; persisted volumes are preserved.' >&2
-      remove_container "$CONTAINER_NAME"
-    fi
+  if [[ "$FORCE_RECREATE" == "true" ]]; then
+    remove_container "$CONTAINER_NAME"
   fi
 
   ensure_volume "$CONFIG_VOLUME"

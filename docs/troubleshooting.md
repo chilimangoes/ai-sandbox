@@ -71,3 +71,7 @@ T3 runs as `sandbox`. The `t3 browser setup` command checks the account running 
 - Run `cursor status`, then `cursor login` if authentication is required.
 - Rebuild with `ai-sandbox --update` to install the latest Cursor CLI release.
 - If state was intentionally cleared with `reset-state`, authenticate again.
+
+## Codex daemon socket ownership
+
+Codex runs as root with `HOME=/home/sandbox`. Its private `.codex/app-server-control` and `.codex/app-server-daemon` directories retain their owner during sandbox initialization. Codex requires its socket directory to be owned by its runtime user or root.

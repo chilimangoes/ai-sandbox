@@ -37,7 +37,7 @@ Supported settings are:
 
 Repeat `network=`, `port=`, and `env=` on separate lines to declare multiple entries. Blank lines and lines starting with `#` are ignored. Values are literal; shell expressions and host environment variables are not expanded. Each network name, port number, and environment variable name should appear only once. Duplicate entries, unknown keys, and reserved environment variables produce an error. Reserved variables are `AI_SANDBOX_*`, `LOCAL_UID`, `LOCAL_GID`, `HOME`, `PATH`, `USER`, and `LOGNAME`.
 
-Startup settings require [workspace trust](custom-images.md#manage-workspace-trust), including when a workspace uses the shared base image. Changes to settings or supplemental mounts trigger workspace container replacement on the next successful launch.
+Startup settings require [workspace trust](custom-images.md#manage-workspace-trust), including when a workspace uses the shared base image. Run `ai-sandbox --rebuild` to apply changes to settings or supplemental mounts.
 
 Configure the application to listen on a container network interface, such as `0.0.0.0`. For an extra port such as `5001`, open `http://<workspace-host-address>:5001` from the host. The workspace address appears in the shell's default service URLs.
 

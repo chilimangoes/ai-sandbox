@@ -72,11 +72,12 @@ def main():
             assert second['Id'] == first['Id'], 'Opening another session replaced the existing container after an unchanged cached build'
             assert 'Replacing the workspace container' not in output
             dockerfile.write_text(dockerfile.read_text().replace('echo first', 'echo second'))
-            launch('reset-config')
-            changed, _ = inspect()
-            assert changed['Id'] != first['Id'], 'Changed image must replace the container'
-            assert docker('exec', changed['Id'], 'cat', '/opt/ai-sandbox/session-test').stdout.strip() == 'second'
-            print('custom-image-sessions passed: cached builds preserve sessions; changed images replace the container')
+            output = launch('reset-config')
+            unchanged, _ = inspect()
+            assert unchanged['Id'] == first['Id'], 'Dockerfile edits must preserve the existing container'
+            assert 'Building workspace image' not in output
+            assert docker('exec', unchanged['Id'], 'cat', '/opt/ai-sandbox/session-test').stdout.strip() == 'first'
+            print('custom-image-sessions passed: ordinary launches preserve the container and its installed image')
         finally:
             # Discover resources even if a launch fails before the first inspection.
             ids = docker('ps', '-aq', '--filter', 'label=ai-sandbox.workspace=' + str(workspace), check=False).stdout.split()

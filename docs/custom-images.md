@@ -31,7 +31,7 @@ Docker and `ai-sandbox` must be installed on the host. On Linux, the launcher al
 3. From the project root, run:
 
    ```text
-   ai-sandbox
+   ai-sandbox --rebuild
    ```
 
    On first use, you need to approve the workspace's sandbox build and launch definitions. In a noninteractive terminal, you can record that approval explicitly with `ai-sandbox trust` before launching.
@@ -46,11 +46,11 @@ The launcher supplies `AI_SANDBOX_BASE_IMAGE` automatically. Preserve the inheri
 
 ## Rebuild an environment
 
-Every launch checks the project build through Docker's cache. Dockerfile and copied-file changes invalidate the affected layers. Workspaces without `.ai-sandbox/Dockerfile` use the shared base image.
+The first launch builds the project image through Docker's cache. Existing containers reuse their installed image. Workspaces without `.ai-sandbox/Dockerfile` use the shared base image.
 
-Additional terminals attach to the same workspace container. Cached builds with identical filesystem layers and runtime configuration preserve active sessions, including when Docker's build records change the image ID.
+Additional terminals attach to the same workspace container. A stopped container starts with its installed image and launch settings. `--update` refreshes images for future container creation.
 
-Changes to image contents or launch settings trigger container replacement. `ai-sandbox --rebuild` forces replacement. Replacement stops active sandbox sessions and application processes. Workspace files and the config, authentication, data, and cache volumes survive replacement. A build failure reports an error and preserves the existing container.
+Existing containers are reused with their installed image and launch settings. Run `ai-sandbox --rebuild` to build the image and replace the workspace container. Replacement stops active sandbox sessions and application processes. Workspace files and the config, authentication, data, and cache volumes survive replacement. A build failure reports an error and preserves the existing container.
 
 Each workspace path has its own container and project image tag. Shared base layers and unchanged project layers can be reused by Docker across workspaces. The launcher records a local base-image snapshot so concurrent updates use a consistent base during each project build.
 

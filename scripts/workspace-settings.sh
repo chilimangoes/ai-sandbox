@@ -127,6 +127,9 @@ lock_workspace() {
 }
 
 prepare_workspace_image() {
+  if container_exists "$CONTAINER_NAME" && [[ "$UPDATE" != true && "$REBUILD" != true ]]; then
+    return 0
+  fi
   local base_ref base_id
   exec 8>"$HOME/.ai-sandbox/locks/base-image.lock"
   flock -w 600 8 || { echo 'Timed out waiting for the shared image build.' >&2; return 1; }
