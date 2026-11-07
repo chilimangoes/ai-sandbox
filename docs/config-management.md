@@ -96,6 +96,19 @@ Run `ai-sandbox --rebuild` to apply changed supplemental folder config. The laun
 
 ## Tool inventory
 
+### Global agent instructions
+
+Store instructions shared by Codex and Claude Code at `/state/config/shared/AGENTS.md` in the sandbox. Bootstrap exposes this file through `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md`. The config volume preserves its contents across rebuilds, and bootstrap restores the home-directory links when the container starts.
+
+Tool-specific instructions take precedence:
+
+- Codex uses `/state/config/codex/AGENTS.md` when that file exists.
+- Claude Code uses an existing `~/.claude/CLAUDE.md`, stored in `/state/data/claude/home/`.
+
+To use the shared file for both tools, merge any tool-specific instructions into it and remove the tool-specific file. For Claude Code, remove `~/.claude/CLAUDE.md` only if it is a separate file or points elsewhere. Bootstrap creates the shared links on the next container start. Start a fresh agent session to load the instructions.
+
+### Persistent tool paths
+
 Shared agent metadata:
 
 - runtime data: `/state/data/agents/`

@@ -47,6 +47,11 @@ rm -rf /home/sandbox/.agents
 ln -sfn /state/data/agents /home/sandbox/.agents
 
 ln -sfn /state/config/codex/config.toml /home/sandbox/.codex/config.toml
+if [[ -f /state/config/codex/AGENTS.md ]]; then
+  ln -sfn /state/config/codex/AGENTS.md /home/sandbox/.codex/AGENTS.md
+else
+  ln -sfn /state/config/shared/AGENTS.md /home/sandbox/.codex/AGENTS.md
+fi
 ln -sfn /state/auth/codex/auth.json /home/sandbox/.codex/auth.json
 ln -sfn /state/data/codex/sessions /home/sandbox/.codex/sessions
 
@@ -55,6 +60,10 @@ if [[ -d /home/sandbox/.claude && ! -L /home/sandbox/.claude ]] && [[ -z "$(find
 fi
 rm -rf /home/sandbox/.claude
 ln -sfn /state/data/claude/home /home/sandbox/.claude
+
+if [[ ! -e /state/data/claude/home/CLAUDE.md && ! -L /state/data/claude/home/CLAUDE.md ]]; then
+  ln -sfn /state/config/shared/AGENTS.md /state/data/claude/home/CLAUDE.md
+fi
 
 if [[ -f /state/data/claude/home/settings.json && ! -L /state/data/claude/home/settings.json ]]; then
   mv /state/data/claude/home/settings.json /state/config/claude/settings.json

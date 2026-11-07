@@ -3,6 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $suffix = [guid]::NewGuid().ToString("N")
 $containerName = "ai-sandbox-agents-state-$suffix"
 $volumes = @(
@@ -29,6 +30,8 @@ function Invoke-Docker {
 function Start-TestContainer {
     Invoke-Docker @(
         "run", "-d", "--name", $containerName,
+        "-v", "${repoRoot}:/repo:ro",
+        "-v", "${repoRoot}/docker/bootstrap/init-state.sh:/opt/ai-sandbox/bootstrap/init-state.sh:ro",
         "-v", "$($volumes[0]):/state/config",
         "-v", "$($volumes[1]):/state/auth",
         "-v", "$($volumes[2]):/state/data",
@@ -47,6 +50,10 @@ try {
     Start-TestContainer
 
     Invoke-Docker @(
+        "exec", $containerName, "bash", "/repo/tests/launcher/global-instructions-runtime.sh", "install"
+    ) | Out-Null
+
+    Invoke-Docker @(
         "exec", $containerName, "bash", "-lc",
         "test -L /home/sandbox/.agents && readlink /home/sandbox/.agents | grep -qx /state/data/agents && printf persistent-agents-state > /home/sandbox/.agents/persistence-marker && /opt/ai-sandbox/bootstrap/init-state.sh && grep -qx persistent-agents-state /home/sandbox/.agents/persistence-marker"
     ) | Out-Null
@@ -56,8 +63,20 @@ try {
     Start-TestContainer
 
     Invoke-Docker @(
+        "exec", $containerName, "bash", "/repo/tests/launcher/global-instructions-runtime.sh", "verify"
+    ) | Out-Null
+
+    Invoke-Docker @(
         "exec", $containerName, "bash", "-lc",
         "test -L /home/sandbox/.agents && readlink /home/sandbox/.agents | grep -qx /state/data/agents && grep -qx persistent-agents-state /home/sandbox/.agents/persistence-marker && grep -qx persistent-agents-state /state/data/agents/persistence-marker"
+    ) | Out-Null
+
+    Invoke-Docker @("rm", "-f", $containerName) | Out-Null
+    $containerCreated = $false
+    Start-TestContainer
+
+    Invoke-Docker @(
+        "exec", $containerName, "bash", "/repo/tests/launcher/global-instructions-runtime.sh", "verify-shared"
     ) | Out-Null
 
     Write-Host "agents-state-persistence.ps1 passed"
