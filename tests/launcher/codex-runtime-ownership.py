@@ -1,4 +1,4 @@
-"""Run as root in a disposable sandbox image to check Codex daemon ownership."""
+"""Run as root in a disposable sandbox image to check shared Codex ownership."""
 from pathlib import Path
 import os
 import pwd
@@ -14,18 +14,19 @@ with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)
     home = root / 'home'
     state = root / 'state'
-    session = home / '.codex/sessions'
+    codex = state / 'data/codex'
+    session = codex / 'sessions'
     control = home / '.codex/app-server-control'
     daemon = home / '.codex/app-server-daemon'
-    for directory in (state, session, control, daemon):
+    for directory in (session, control, daemon):
         directory.mkdir(parents=True)
     (control / 'startup.lock').touch()
     function = function.replace('/home/sandbox', str(home)).replace('/state', str(state))
     for _ in range(2):
         subprocess.run(['bash', '-euc', function + '\nset_runtime_ownership'], check=True)
-        assert control.stat().st_uid == 0
-        assert daemon.stat().st_uid == 0
-        assert (control / 'startup.lock').stat().st_uid == 0
+        assert control.stat().st_uid == sandbox.pw_uid
+        assert daemon.stat().st_uid == sandbox.pw_uid
+        assert (control / 'startup.lock').stat().st_uid == sandbox.pw_uid
         assert session.stat().st_uid == sandbox.pw_uid
         assert state.stat().st_uid == sandbox.pw_uid
 print('codex-runtime-ownership passed')

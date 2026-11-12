@@ -68,7 +68,7 @@ Install:
 Notes:
 
 - The launcher passes `LOCAL_UID` and `LOCAL_GID` into the container.
-- Shell and most tool commands run as root inside the sandbox, so files created in `/workspace/<project-folder-slug>` may be owned by root on Linux hosts. T3 and Claude Code run as the mapped `sandbox` UID.
+- Shell and most tool commands run as root inside the sandbox, so files created in `/workspace/<project-folder-slug>` may be owned by root on Linux hosts. T3, Codex, Claude Code, and Antigravity CLI run as the mapped `sandbox` UID. These tools can use passwordless `sudo` for commands that require root access.
 
 ## T3 access
 

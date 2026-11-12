@@ -38,7 +38,27 @@ flock 9
 
 /opt/ai-sandbox/bootstrap/sync-configs.sh
 
-mkdir -p /home/sandbox/.codex /home/sandbox/.copilot /home/sandbox/.config /home/sandbox/.cache /home/sandbox/.local/share /home/sandbox/.gemini
+mkdir -p /home/sandbox/.copilot /home/sandbox/.config /home/sandbox/.cache /home/sandbox/.local/share /home/sandbox/.gemini
+
+# Move the local Codex home into the volume that holds its sessions.
+if [[ -d /home/sandbox/.codex && ! -L /home/sandbox/.codex ]]; then
+  (
+    shopt -s dotglob nullglob
+    for source in /home/sandbox/.codex/*; do
+      target="/state/data/codex/${source##*/}"
+      if [[ -L "$source" && "$(readlink "$source")" == "$target" ]]; then
+        rm -- "$source"
+      elif [[ -e "$target" || -L "$target" ]]; then
+        echo "Cannot migrate Codex state: both $source and $target exist. Resolve the duplicate before starting the sandbox." >&2
+        exit 1
+      else
+        mv -- "$source" "$target"
+      fi
+    done
+    rmdir /home/sandbox/.codex
+  )
+fi
+ln -sfn /state/data/codex /home/sandbox/.codex
 
 rm -rf /home/sandbox/.config/cursor
 ln -sfn /state/auth/cursor /home/sandbox/.config/cursor
@@ -53,7 +73,6 @@ else
   ln -sfn /state/config/shared/AGENTS.md /home/sandbox/.codex/AGENTS.md
 fi
 ln -sfn /state/auth/codex/auth.json /home/sandbox/.codex/auth.json
-ln -sfn /state/data/codex/sessions /home/sandbox/.codex/sessions
 
 if [[ -d /home/sandbox/.claude && ! -L /home/sandbox/.claude ]] && [[ -z "$(find /state/data/claude/home -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
   cp -a /home/sandbox/.claude/. /state/data/claude/home/

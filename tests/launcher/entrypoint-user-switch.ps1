@@ -29,6 +29,10 @@ if ($entrypoint -notmatch '(?ms)claude\).*?run_argv_as_sandbox /opt/ai-sandbox/c
     throw "Expected Claude to run as the mapped sandbox user."
 }
 
+if ($entrypoint -notmatch '(?ms)codex\)\s+run_argv_as_sandbox /opt/ai-sandbox/bin/codex "\$@"') {
+    throw "Expected Codex to run as the mapped sandbox user."
+}
+
 if ($entrypoint -notmatch 'git config --system --add safe\.directory ''\*''') {
     throw "Expected docker/entrypoint.sh to trust bind-mounted workspace repositories inside the sandbox."
 }

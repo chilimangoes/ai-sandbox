@@ -14,10 +14,9 @@ HOST_APP_URL="${AI_SANDBOX_APP_URL:-http://127.0.0.1:${AI_SANDBOX_HOST_APP_PORT:
 WORKSPACE_PATH="${AI_SANDBOX_WORKSPACE_PATH:-/workspace}"
 REAL_BIN_DIR="${AI_SANDBOX_REAL_BIN_DIR:-/opt/ai-sandbox/bin}"
 
-# Codex validates ownership of its private daemon socket and lock directories.
 set_runtime_ownership() {
   chown -R sandbox:sandbox /state
-  find /home/sandbox \( -path /home/sandbox/.codex/app-server-control -o -path /home/sandbox/.codex/app-server-daemon \) -prune -o -exec chown -h sandbox:sandbox {} +
+  find /home/sandbox -exec chown -h sandbox:sandbox {} +
 }
 
 ensure_runtime_user() {
@@ -273,7 +272,7 @@ dispatch() {
       run_as_root "exec bash -il"
       ;;
     codex)
-      run_argv_as_root /opt/ai-sandbox/bin/codex "$@"
+      run_argv_as_sandbox /opt/ai-sandbox/bin/codex "$@"
       ;;
     claude)
       run_argv_as_sandbox /opt/ai-sandbox/claude-wrapper.sh "$@"

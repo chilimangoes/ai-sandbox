@@ -14,6 +14,7 @@ All auth happens inside the sandbox and persists in Docker volumes. The launcher
 - Authenticate by running `codex` inside the sandbox shell.
 - Codex config defaults live in `/state/config/codex/config.toml`.
 - Codex auth is stored under `/state/auth/codex`.
+- Codex home is stored under `/state/data/codex` and linked to `~/.codex`. Databases, sessions, and archives survive container recreation.
 - T3 depends on a working Codex login because it uses `codex app-server`.
 
 ## Claude Code
